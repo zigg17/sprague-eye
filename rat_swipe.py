@@ -1,6 +1,7 @@
 from tkinter import filedialog
 from tkinter import messagebox
 import customtkinter as CTk
+from customtkinter import CTkImage
 from PIL import Image, ImageTk
 import os
 import sys
@@ -29,7 +30,7 @@ class Application(CTk.CTk):
         # Initialize app settings
         CTk.set_appearance_mode('dark')
         self.title("Rat Swipe")
-        self.position_window(800, 450)
+        self.position_window(800, 550)
         self.resizable(False, False)
         
         self.grid_rowconfigure(0, weight=1)  # Content area
@@ -168,6 +169,52 @@ class FolderNameDialog(CTk.CTkToplevel):
         self.wait_window()
         return self.folder_name
 
+class ClassNameDialog(CTk.CTkToplevel): 
+    def __init__(self, parent, title=None, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        
+        # Set window properties
+        if title:
+            self.title(title)
+        self.geometry("300x150")  # Adjust size as needed
+        
+        # Set dark mode for the dialog if the parent is also in dark mode
+        CTk.set_appearance_mode("dark")
+        
+        # Add customtkinter widgets
+        self.label = CTk.CTkLabel(self, text="Enter number of classes:")
+        self.label.pack(pady=10)
+
+        self.entry = CTk.CTkEntry(self)
+        self.entry.pack(pady=10)
+
+        self.submit_button = CTk.CTkButton(self, text="Create",
+                                           fg_color=("gray75", "gray30"),  # Custom colors
+                                           hover_color=("gray30", "gray75"),
+                                           command=self.on_submit)
+        self.submit_button.pack(pady=10)
+
+        # Variable to store the input value
+        self.folder_name = None
+        self.new_folder_path = None
+
+    def on_submit(self):
+        self.class_number = self.entry.get()
+
+        if not isinstance(self.class_number, int):
+            messagebox.showwarning("Warning", "Must be int.")
+            return
+        
+        if self.class_number > 4:
+            messagebox.showwarning("Warning", "Must be smaller than 4.")
+            return
+
+        self.destroy()
+
+    def show(self):
+        self.wait_window()
+        return self.folder_name
+
 class SpliceFrame(CTk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
@@ -205,6 +252,15 @@ class SpliceFrame(CTk.CTkFrame):
 
         # Button for Splice Videos
         self.splice_videos_button = CTk.CTkButton(self, text="Splice Videos", command=self.splice_videos,
+                                                  hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
+        self.splice_videos_button.pack(pady=5)
+
+        # Label 4
+        self.label3 = CTk.CTkLabel(self, text="4) Choose number of classes")
+        self.label3.pack(pady=15)
+
+        # Button for Splice Videos
+        self.splice_videos_button = CTk.CTkButton(self, text="Quantify Classes",
                                                   hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
         self.splice_videos_button.pack(pady=5)
 
@@ -398,17 +454,6 @@ class SwipeFrame(CTk.CTkFrame):
         self.parent.bind("<KeyPress-Right>", self.next_image)
         self.parent.focus_set()
 
-        self.hot_image = CTk.CTkImage(light_image=Image.open(resource_path(os.path.join("images", "hot.png"))),
-                                    dark_image=Image.open(resource_path(os.path.join("images", "hot.png"))), 
-                                    size=(200, 200))
-        self.not_image = CTk.CTkImage(light_image=Image.open(resource_path(os.path.join("images", "not.png"))),
-                                    dark_image=Image.open(resource_path(os.path.join("images", "not.png"))), 
-                                    size=(200, 200))
-        
-        self.hot_label = CTk.CTkLabel(self, image=self.hot_image, text = '        ', 
-                                      fg_color = 'transparent', bg_color = 'transparent')
-        self.not_label = CTk.CTkLabel(self, image=self.not_image,  text = '        ', 
-                                      fg_color = 'transparent', bg_color = 'transparent')
 
     def load_images(self):
         folder_path = self.parent.spliceFrame.new_folder_path
@@ -416,8 +461,9 @@ class SwipeFrame(CTk.CTkFrame):
             self.image_paths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.jpg', '.png'))]
 
         self.image_paths = sorted(self.image_paths, key=extract_last_number)
+
         # The output file where paths will be saved
-        output_file = 'image_paths.txt'
+        output_file = os.path.join(folder_path, 'image_paths.txt')
 
         # Open the output file in write mode
         with open(output_file, 'w') as file:
@@ -438,23 +484,16 @@ class SwipeFrame(CTk.CTkFrame):
             try:
                 image_path = self.image_paths[self.current_index]
                 image = Image.open(image_path)
-                image = ImageTk.PhotoImage(image.resize((500, 300)))  # Resize as needed
-                self.image_label.configure(image=image)
-                self.image_label.image = image
+                ctk_image = CTkImage(image, size=(500, 300))  # Convert PIL.Image to CTkImage with desired size
+                self.image_label.configure(image=ctk_image)  # Use CTkImage for the label
+                self.image_label.image = ctk_image  # Assign to prevent garbage collection
             except Exception as e:
                 messagebox.showwarning("Warning", f"Error displaying image: {e}")
 
     def create_widgets(self):
         self.image_label = CTk.CTkLabel(self, text = '              ')
-        self.image_label.pack(pady=20)
+        self.image_label.pack(pady=100)
 
-        self.left_button = CTk.CTkButton(self, text="Left", command=self.previous_image(event = None),
-                                         hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
-        self.left_button.pack(side='left', padx=10)
-
-        self.right_button = CTk.CTkButton(self, text="Right", command=self.next_image(event = None),
-                                          hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
-        self.right_button.pack(side='right', padx=10)
 
     def next_image(self,event):
         current_time = time.time()
@@ -492,8 +531,6 @@ class SwipeFrame(CTk.CTkFrame):
             lines[1] = str(self.current_index)
             with open(self.textPath, 'w') as file:
                 file.writelines(lines)
-
-
 
 if __name__ == "__main__":
     app = Application()
