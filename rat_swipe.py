@@ -182,7 +182,6 @@ class FolderNameDialog(CTk.CTkToplevel):
         self.wait_window()
         return self.folder_name
 
-
 class ClassCountDialog(CTk.CTkToplevel): 
     def __init__(self, parent, title=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
