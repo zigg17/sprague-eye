@@ -169,7 +169,7 @@ class FolderNameDialog(CTk.CTkToplevel):
         self.wait_window()
         return self.folder_name
 
-class ClassNameDialog(CTk.CTkToplevel): 
+class ClassCountDialog(CTk.CTkToplevel): 
     def __init__(self, parent, title=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         
@@ -260,7 +260,7 @@ class SpliceFrame(CTk.CTkFrame):
         self.label3.pack(pady=15)
 
         # Button for Splice Videos
-        self.splice_videos_button = CTk.CTkButton(self, text="Quantify Classes",
+        self.splice_videos_button = CTk.CTkButton(self, text="Quantify Classes", command=self.quantify_class,
                                                   hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
         self.splice_videos_button.pack(pady=5)
 
@@ -320,6 +320,10 @@ class SpliceFrame(CTk.CTkFrame):
                 messagebox.showerror(f"{error}", "Folder creation was canceled.")
         else:
                 messagebox.showerror("Error", "Folder creation was canceled.")
+
+    def quantify_class(self):
+        dialog = ClassCountDialog(self, title= "Class Quantification")
+        class_count = dialog.show()
     
     def splice_videos(self):
         # Check if the folders are set
