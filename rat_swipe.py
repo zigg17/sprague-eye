@@ -236,7 +236,6 @@ class SpliceFrame(CTk.CTkFrame):
         self.height = 100  # Adjust the height as needed
         self.configure(width=self.width, height=self.height)
         
-
         # Label 1
         self.label1 = CTk.CTkLabel(self, text="1) Select folder for processing:")
         self.label1.pack(pady=15)
@@ -370,7 +369,7 @@ class SpliceFrame(CTk.CTkFrame):
 
         
         with open(txt_file_path, 'w') as file:
-            file.write('Intialized @ ' + datetime_string + '\n0')  # Write an empty string (or you can add initial content here)
+            file.write('Intialized @ ' + datetime_string + '\n0')
         
         self.parent.isOpen = True
 
