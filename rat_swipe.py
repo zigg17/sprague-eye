@@ -128,15 +128,18 @@ class NavigationFrame(CTk.CTkFrame):
     def on_journal_click(self):
         self.parent.select_frame_by_name("stats")
 
-class FolderNameDialog(CTk.CTkToplevel): 
-    def __init__(self, parent, title=None, *args, **kwargs):
+class FolderNameDialog(CTk.CTkToplevel):
+    def __init__(self, parent, selected_folder, title=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
+        
+        # Store selected folder
+        self.selected_folder = selected_folder
         
         # Set window properties
         if title:
             self.title(title)
         self.geometry("300x150")  # Adjust size as needed
-        
+
         # Set dark mode for the dialog if the parent is also in dark mode
         CTk.set_appearance_mode("dark")
         
@@ -159,8 +162,18 @@ class FolderNameDialog(CTk.CTkToplevel):
 
     def on_submit(self):
         self.folder_name = self.entry.get()
+        print(self.selected_folder)  # Now this will correctly print the selected folder path
+        print(self.folder_name)
         if not self.folder_name:
             messagebox.showwarning("Warning", "Folder name cannot be empty.")
+            return
+        
+        if self.folder_name ==  os.path.basename(self.selected_folder):
+            messagebox.showwarning("Warning", "Cannot be the same name as the selected folder.")
+            return
+
+        if os.path.exists(os.path.join(os.path.expanduser("~"), "Desktop", self.folder_name)):
+            messagebox.showwarning("Warning", "Choose a name of a folder that doesn't exist.")
             return
         
         self.destroy()
@@ -168,6 +181,7 @@ class FolderNameDialog(CTk.CTkToplevel):
     def show(self):
         self.wait_window()
         return self.folder_name
+
 
 class ClassCountDialog(CTk.CTkToplevel): 
     def __init__(self, parent, title=None, *args, **kwargs):
@@ -199,12 +213,12 @@ class ClassCountDialog(CTk.CTkToplevel):
         self.new_folder_path = None
 
     def on_submit(self):
-        self.class_number = self.entry.get()
-
-        if not isinstance(self.class_number, int):
-            messagebox.showwarning("Warning", "Must be int.")
+        try:
+            self.class_number = int(self.entry.get())
+        except ValueError:
+            messagebox.showwarning("Warning", "Must be an integer.")
             return
-        
+
         if self.class_number > 4:
             messagebox.showwarning("Warning", "Must be smaller than 4.")
             return
@@ -247,20 +261,20 @@ class SpliceFrame(CTk.CTkFrame):
         self.create_folder_button.pack(pady=5)
 
         # Label 3
-        self.label3 = CTk.CTkLabel(self, text="3) Splice videos for labelling:")
+        self.label3 = CTk.CTkLabel(self, text="3) Choose number of classes")
+        self.label3.pack(pady=15)
+
+        # Button for Splice Videos
+        self.quantify = CTk.CTkButton(self, text="Quantify Classes", command=self.quantify_class,
+                                                  hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
+        self.quantify.pack(pady=5)
+
+        # Label 4
+        self.label3 = CTk.CTkLabel(self, text="4) Splice videos for labelling:")
         self.label3.pack(pady=15)
 
         # Button for Splice Videos
         self.splice_videos_button = CTk.CTkButton(self, text="Splice Videos", command=self.splice_videos,
-                                                  hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
-        self.splice_videos_button.pack(pady=5)
-
-        # Label 4
-        self.label3 = CTk.CTkLabel(self, text="4) Choose number of classes")
-        self.label3.pack(pady=15)
-
-        # Button for Splice Videos
-        self.splice_videos_button = CTk.CTkButton(self, text="Quantify Classes", command=self.quantify_class,
                                                   hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
         self.splice_videos_button.pack(pady=5)
 
@@ -295,8 +309,6 @@ class SpliceFrame(CTk.CTkFrame):
                 messagebox.showerror("Error", "Please select a folder with videos only (.mp4, .mov).")
                 return
 
-            # If all files are videos, proceed with the rest of the function
-            print(f"Folder selected: {folder_path}")
             self.select_folder_button.configure(self, text="Select folder",
                                                 hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
                                                 image=self.checkmark_image)
@@ -306,7 +318,7 @@ class SpliceFrame(CTk.CTkFrame):
             messagebox.showerror("Error", "No folder was selected.")
 
     def create_folder(self):
-        dialog = FolderNameDialog(self, title="Create New Folder")
+        dialog = FolderNameDialog(self, self.selected_folder, title="Create New Folder")
         folder_name = dialog.show()
         if folder_name:
             self.desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
@@ -321,9 +333,13 @@ class SpliceFrame(CTk.CTkFrame):
         else:
                 messagebox.showerror("Error", "Folder creation was canceled.")
 
+
     def quantify_class(self):
         dialog = ClassCountDialog(self, title= "Class Quantification")
         class_count = dialog.show()
+        self.quantify.configure(self, text="Quantify Classes",
+                                                hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
+                                                image=self.checkmark_image)
     
     def splice_videos(self):
         # Check if the folders are set
