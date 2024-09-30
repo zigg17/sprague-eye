@@ -49,7 +49,6 @@ class Application(CTk.CTk):
         self.spliceFrame.grid(row=0, column=0, sticky="nsew")
         self.navFrame.splice.configure(fg_color=("#ff5146", "#ff5146"))
         
-        
     def select_frame_by_name(self, name):
         self.navFrame.update_button_color(name)
 
@@ -155,21 +154,26 @@ class FolderNameDialog(CTk.CTkToplevel):
 
     def on_submit(self):
         self.folder_name = self.entry.get()
-        print(self.selected_folder)
-        print(self.folder_name)
+
         if not self.folder_name:
             messagebox.showwarning("Warning", "Folder name cannot be empty.")
             return
-        
-        if self.folder_name ==  os.path.basename(self.selected_folder):
+
+        # Add check to ensure selected_folder is not None
+        if self.selected_folder is None:
+            messagebox.showwarning("Warning", "No folder selected.")
+            return
+
+        if self.folder_name == os.path.basename(self.selected_folder):
             messagebox.showwarning("Warning", "Cannot be the same name as the selected folder.")
             return
 
         if os.path.exists(os.path.join(os.path.expanduser("~"), "Desktop", self.folder_name)):
             messagebox.showwarning("Warning", "Choose a name of a folder that doesn't exist.")
             return
-        
+
         self.destroy()
+
 
     def show(self):
         self.wait_window()
@@ -535,6 +539,7 @@ class SwipeFrame(CTk.CTkFrame):
 
         # Variable to hold the last class pressed
         self.last_class = 'None'
+        self.selected_folder = None
 
         self.create_widgets()  # Ensure the method is defined before it is called
         self.parent.bind("<KeyPress-Left>", self.key_press)
@@ -759,10 +764,29 @@ class SwipeFrame(CTk.CTkFrame):
             self.image_label.configure(image=None, text="No image loaded.")
     
     def export_data(self):
-        """Handle export button click."""
-        # Implement your export logic here
-        print("Export button clicked")
+        dialog = FolderNameDialog(self, self.selected_folder, title="Create Export Folder")
+        folder_name = dialog.show()
 
+        if folder_name:
+            self.desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+            self.new_folder_path = os.path.join(self.desktop_path, folder_name)
+
+            try:
+                # Attempt to create the folder and catch any errors
+                os.makedirs(self.new_folder_path, exist_ok=False)
+                messagebox.showinfo("Success", f"Folder '{folder_name}' created successfully.")
+                
+                # Update the button UI to reflect the successful folder creation
+                self.create_folder_button.configure(text="Folder Created", 
+                                                    hover_color=("#ff6961", "#ff6961"), 
+                                                    fg_color="#3a3e41", 
+                                                    image=self.checkmark_image)
+
+            except OSError as error:
+                # Handle the error if folder creation fails
+                messagebox.showerror(f"{error}", "Folder creation was unsuccessful.")
+        else:
+            messagebox.showerror("Error", "Folder creation was canceled.")
 
 class StatsFrame(CTk.CTkFrame):
     pass
