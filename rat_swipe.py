@@ -51,7 +51,6 @@ class Application(CTk.CTk):
         
         
     def select_frame_by_name(self, name):
-        # Update button colors in navFrame
         self.navFrame.update_button_color(name)
 
         # Grid management for frames
@@ -64,11 +63,6 @@ class Application(CTk.CTk):
             self.swipeFrame.grid(row=0, column=0, sticky="nsew")
         else:
             self.swipeFrame.grid_forget()
-
-        # if name == "stats":
-        #     self.journalFrame.grid(row=0, column=1, sticky="nsew")
-        # else:
-        #     self.journalFrame.grid_forget()
         
     def position_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -131,16 +125,13 @@ class NavigationFrame(CTk.CTkFrame):
 class FolderNameDialog(CTk.CTkToplevel):
     def __init__(self, parent, selected_folder, title=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        
-        # Store selected folder
+
         self.selected_folder = selected_folder
-        
-        # Set window properties
+
         if title:
             self.title(title)
-        self.geometry("300x150")  # Adjust size as needed
+        self.geometry("300x150")
 
-        # Set dark mode for the dialog if the parent is also in dark mode
         CTk.set_appearance_mode("dark")
         
         # Add customtkinter widgets
@@ -156,13 +147,12 @@ class FolderNameDialog(CTk.CTkToplevel):
                                            command=self.on_submit)
         self.submit_button.pack(pady=10)
 
-        # Variable to store the input value
         self.folder_name = None
         self.new_folder_path = None
 
     def on_submit(self):
         self.folder_name = self.entry.get()
-        print(self.selected_folder)  # Now this will correctly print the selected folder path
+        print(self.selected_folder)
         print(self.folder_name)
         if not self.folder_name:
             messagebox.showwarning("Warning", "Folder name cannot be empty.")
@@ -185,48 +175,55 @@ class FolderNameDialog(CTk.CTkToplevel):
 class ClassCountDialog(CTk.CTkToplevel): 
     def __init__(self, parent, title=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
-        
-        # Set window properties
+
         if title:
             self.title(title)
-        self.geometry("300x150")  # Adjust size as needed
+        self.geometry("500x150") 
         
-        # Set dark mode for the dialog if the parent is also in dark mode
         CTk.set_appearance_mode("dark")
         
-        # Add customtkinter widgets
-        self.label = CTk.CTkLabel(self, text="Enter number of classes:")
+        self.label = CTk.CTkLabel(self, text="Type classes separated by comma, i.e. explore,avoid,escape")
         self.label.pack(pady=10)
 
         self.entry = CTk.CTkEntry(self)
         self.entry.pack(pady=10)
 
-        self.submit_button = CTk.CTkButton(self, text="Create",
+        self.submit_button = CTk.CTkButton(self, text="Enter",
                                            fg_color=("gray75", "gray30"),  # Custom colors
                                            hover_color=("gray30", "gray75"),
                                            command=self.on_submit)
         self.submit_button.pack(pady=10)
 
-        # Variable to store the input value
-        self.folder_name = None
-        self.new_folder_path = None
+        self.class_string = None
 
     def on_submit(self):
-        try:
-            self.class_number = int(self.entry.get())
-        except ValueError:
-            messagebox.showwarning("Warning", "Must be an integer.")
+        self.class_string = self.entry.get()
+
+        if not self.class_string:
+            messagebox.showwarning("Warning", "Entry cannot be empty.")
+            return
+        
+        pattern = r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$"
+
+        if not re.match(pattern, self.class_string):
+            messagebox.showwarning("Warning", "Invalid format. Please enter words separated by commas, e.g., explore,avoid,escape.")
             return
 
-        if self.class_number > 4:
-            messagebox.showwarning("Warning", "Must be smaller than 4.")
+        self.class_list = self.class_string.split(",")
+        self.class_count = len(self.class_list)
+        print(self.class_count)
+        print(self.class_list)
+
+        if self.class_count > 4:
+            messagebox.showwarning("Warning", "Please enter no more than 4 classes.")
             return
 
         self.destroy()
 
     def show(self):
         self.wait_window()
-        return self.folder_name
+        return self.class_string
+
 
 class SpliceFrame(CTk.CTkFrame):
     def __init__(self, parent):
@@ -235,6 +232,10 @@ class SpliceFrame(CTk.CTkFrame):
         self.width = 760  # Adjust the width as needed
         self.height = 100  # Adjust the height as needed
         self.configure(width=self.width, height=self.height)
+
+        self.step2_check = False
+        self.step3_check = False
+        self.step4_check = False
         
         # Label 1
         self.label1 = CTk.CTkLabel(self, text="1) Select folder for processing:")
@@ -263,7 +264,7 @@ class SpliceFrame(CTk.CTkFrame):
         self.label3.pack(pady=15)
 
         # Button for Splice Videos
-        self.quantify = CTk.CTkButton(self, text="Quantify Classes", command=self.quantify_class,
+        self.quantify = CTk.CTkButton(self, text="Class Entry", command=self.quantify_class,
                                                   hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41")
         self.quantify.pack(pady=5)
 
@@ -316,29 +317,68 @@ class SpliceFrame(CTk.CTkFrame):
             messagebox.showerror("Error", "No folder was selected.")
 
     def create_folder(self):
+        # Check if a source folder has been selected before proceeding
+        if self.selected_folder is None:
+            messagebox.showerror("Error", "Please select a source folder first.")
+            return
+
         dialog = FolderNameDialog(self, self.selected_folder, title="Create New Folder")
         folder_name = dialog.show()
+
+        # Validate the folder name
         if folder_name:
             self.desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
             self.new_folder_path = os.path.join(self.desktop_path, folder_name)
-            try:
-                os.makedirs(self.new_folder_path, exist_ok=True)
-                self.create_folder_button.configure(self, text="Create Folder", 
-                                                hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
-                                                image=self.checkmark_image)
-            except OSError as error:
-                messagebox.showerror(f"{error}", "Folder creation was canceled.")
-        else:
-                messagebox.showerror("Error", "Folder creation was canceled.")
 
+            try:
+                # Attempt to create the folder and catch any errors
+                os.makedirs(self.new_folder_path, exist_ok=False)
+                messagebox.showinfo("Success", f"Folder '{folder_name}' created successfully.")
+                
+                # Update the button UI to reflect the successful folder creation
+                self.create_folder_button.configure(text="Folder Created", 
+                                                    hover_color=("#ff6961", "#ff6961"), 
+                                                    fg_color="#3a3e41", 
+                                                    image=self.checkmark_image)
+
+            except OSError as error:
+                # Handle the error if folder creation fails
+                messagebox.showerror(f"{error}", "Folder creation was unsuccessful.")
+        else:
+            messagebox.showerror("Error", "Folder creation was canceled.")
 
     def quantify_class(self):
-        dialog = ClassCountDialog(self, title= "Class Quantification")
-        class_count = dialog.show()
-        self.quantify.configure(self, text="Quantify Classes",
-                                                hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
-                                                image=self.checkmark_image)
-    
+        # Open the dialog to get the class quantification input
+        dialog = ClassCountDialog(self, title="Class Quantification")
+        class_string = dialog.show()  # Get the class string from the dialog
+
+        if class_string:
+            class_list = class_string.split(",")
+            class_count = len(class_list)
+            
+            if self.new_folder_path:
+                class_file_path = os.path.join(self.new_folder_path, 'class.txt')
+                
+                try:
+                    with open(class_file_path, 'w') as file:
+                        file.write(f"Class count: {class_count}\n")
+                        file.write(f"Class list: {', '.join(class_list)}\n")
+                        
+                    messagebox.showinfo("Success", "Class information has been saved to class.txt successfully.")
+
+                except Exception as error:
+                    messagebox.showerror("Error", f"Failed to write to class.txt: {error}")
+
+            self.quantify.configure(
+                text="Class Entry",
+                hover_color=("#ff6961", "#ff6961"),
+                fg_color="#3a3e41",
+                image=self.checkmark_image
+            )
+        else:
+            messagebox.showinfo("Information", "Class quantification was canceled.")
+
+
     def splice_videos(self):
         # Check if the folders are set
         if self.selected_folder == None or self.new_folder_path == None:
@@ -386,37 +426,47 @@ class SpliceFrame(CTk.CTkFrame):
 
         # Check if a folder was selected
         if folder_path:
-            # Check if 'labels.csv' exists and other files are '.jpg'
-            if os.path.exists(os.path.join(folder_path, 'labels.csv')) and os.path.exists(os.path.join(folder_path, 'info.txt')):
-                if all(file.endswith('.jpg') for file in os.listdir(folder_path) if (file != 'labels.csv' and file != 'info.txt')):
-                    self.new_folder_path = folder_path
-                    # Call the functions you want to execute after loading
-                    self.parent.isOpen = True
-                    self.new_folder_path = folder_path
-                    self.parent.swipeFrame.load_images()  # Assuming these methods exist
-                    self.parent.swipeFrame.display_image()
-                    self.select_folder_button.configure(self, text="Select folder",
-                                                hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
-                                                image=self.checkmark_image)
-                    self.create_folder_button.configure(self, text="Create Folder",
-                                                hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
-                                                image=self.checkmark_image)
-                    self.splice_videos_button.configure(self, text="Splice Videos", 
-                                                hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
-                                                image=self.checkmark_image)
-                    self.loading_button.configure(self, text="Load Previous", 
-                                                hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
-                                                image=self.checkmark_image)
-                    
-                else:
-                    messagebox.showerror("Error", "The folder does not contain only .jpg files.")
-                    return
+            # Check for the required files
+            required_files = {'labels.csv', 'info.txt', 'class.txt', 'image_paths.txt'}
+            folder_files = set(os.listdir(folder_path))
+            
+            # Check if all required files are present
+            if required_files.issubset(folder_files):
+                # Check if all other files are .jpg files
+                for file in folder_files - required_files:  # Files other than required ones
+                    if not file.lower().endswith('.jpg'):
+                        messagebox.showerror("Error", "The folder does not contain only .jpg files.")
+                        return
+                
+                # If everything is fine, proceed with loading
+                self.new_folder_path = folder_path
+                # Call the functions you want to execute after loading
+                self.parent.isOpen = True
+                self.new_folder_path = folder_path
+                self.parent.swipeFrame.load_images()  # Assuming these methods exist
+                self.parent.swipeFrame.display_image()
+                self.select_folder_button.configure(self, text="Select folder",
+                                                    hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
+                                                    image=self.checkmark_image)
+                self.create_folder_button.configure(self, text="Create Folder",
+                                                    hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
+                                                    image=self.checkmark_image)
+                self.splice_videos_button.configure(self, text="Splice Videos", 
+                                                    hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
+                                                    image=self.checkmark_image)
+                self.quantify.configure(self, text="Class Entry",
+                                        hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
+                                                    image=self.checkmark_image)
+                self.loading_button.configure(self, text="Load Previous", 
+                                                    hover_color=("#ff6961", "#ff6961"), fg_color="#3a3e41", 
+                                                    image=self.checkmark_image)
             else:
-                messagebox.showerror("Error", "labels.csv or info.txt not found in the folder.")
+                messagebox.showerror("Error", "One or more required files (labels.csv, info.txt, class.txt, image_paths.txt) not found in the folder.")
                 return
         else:
             messagebox.showinfo("Information", "No folder was selected.")
             return
+
 
     def process_video(self, video_path):
         # Create a VideoCapture object
@@ -453,25 +503,86 @@ def extract_last_number(file_path):
     numbers = re.findall(r'\d+', file_path.split('/')[-1])
     return int(numbers[-1]) if numbers else 0  # Use the last number, default to 0 if none
 
-
 class SwipeFrame(CTk.CTkFrame):
-    
     def __init__(self, parent):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
         self.parent = parent
         self.image_paths = []
         self.current_index = 0
-    
+        self.class_names = []  # This will be populated from class.txt
+
         self.left_key_last_press_time = 0
         self.right_key_last_press_time = 0
-        self.debounce_interval = 0.3  # 200 ms debounce interval
-        
-        self.create_widgets()
-        # Bind keys to the window
-        self.parent.bind("<KeyPress-Left>", self.previous_image)
-        self.parent.bind("<KeyPress-Right>", self.next_image)
+        self.debounce_interval = 0.3  # 300 ms debounce interval
+
+        self.create_widgets()  # Ensure the method is defined before it is called
+        self.parent.bind("<KeyPress-Left>", self.key_press)
+        self.parent.bind("<KeyPress-Right>", self.key_press)
+        self.parent.bind("<KeyPress-a>", self.key_press)
+        self.parent.bind("<KeyPress-b>", self.key_press)
         self.parent.focus_set()
 
+    def create_widgets(self):
+        # Create a frame to hold class labels
+        self.class_label_frame = CTk.CTkFrame(self, fg_color="transparent")
+        self.class_label_frame.pack(pady=10, padx=20, side="top", anchor="n")
+
+        # Create and pack the image label for displaying images
+        self.image_label = CTk.CTkLabel(self, text='No image loaded.', width=500, height=300)
+        self.image_label.pack(pady=50)  # Adjust layout as needed
+
+        # Frame for bottom labels
+        self.bottom_label_frame = CTk.CTkFrame(self, fg_color="transparent")
+        self.bottom_label_frame.pack(pady=10, padx=20, side="bottom", anchor="s")
+
+    def key_press(self, event):
+        """Handle key press and update the labels.csv file."""
+        current_time = time.time()
+
+        if current_time - self.left_key_last_press_time > self.debounce_interval:
+            # Map keys to corresponding class names
+            key_to_class_map = {
+                "Left": self.class_names[0] if len(self.class_names) > 0 else 'null',
+                "Right": self.class_names[1] if len(self.class_names) > 1 else 'null',
+                "a": self.class_names[3] if len(self.class_names) > 3 else 'null',
+                "b": self.class_names[2] if len(self.class_names) > 2 else 'null',
+            }
+
+            class_name = key_to_class_map.get(event.keysym, 'unknown')
+
+            # Skip processing if the class name is 'null'
+            if class_name == 'null':
+                return  # Don't save or update anything if class is null
+
+            # Proceed to next image and save the current one
+            self.current_index = (self.current_index + 1) % len(self.image_paths)
+            self.display_image()
+            self.update_labels_csv(self.image_paths[self.current_index], class_name)
+            self.update_info_file()  # Update the info.txt file with the new index
+
+            self.left_key_last_press_time = current_time
+
+    def update_labels_csv(self, image_path, class_name):
+        """Update labels.csv with the image path and the associated class name."""
+        csv_file = os.path.join(self.parent.spliceFrame.new_folder_path, 'labels.csv')
+        try:
+            with open(csv_file, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([image_path, class_name])
+        except Exception as e:
+            print(f"Error updating CSV: {e}")
+
+    def update_info_file(self):
+        """Update the info.txt file with the current index."""
+        text_path = os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt')
+        try:
+            with open(text_path, 'r') as file:
+                lines = file.readlines()
+            lines[1] = str(self.current_index)  # Update the current index in the file
+            with open(text_path, 'w') as file:
+                file.writelines(lines)
+        except Exception as e:
+            print(f"Error updating info.txt: {e}")
 
     def load_images(self):
         folder_path = self.parent.spliceFrame.new_folder_path
@@ -480,16 +591,19 @@ class SwipeFrame(CTk.CTkFrame):
 
         self.image_paths = sorted(self.image_paths, key=extract_last_number)
 
+        # Load class names from class.txt
+        self.load_class_names(folder_path)
+
+        self.display_class_labels()  # Display class labels dynamically
+        self.display_bottom_labels()  # Display bottom labels dynamically
+
         # The output file where paths will be saved
         output_file = os.path.join(folder_path, 'image_paths.txt')
 
         # Open the output file in write mode
         with open(output_file, 'w') as file:
-            # Iterate over all files in the directory
             for filename in self.image_paths:
-                # Check if the file is an image (e.g., .jpg or .png)
-                if filename.endswith('.jpg') or filename.endswith('.png'):  # Add more formats if needed
-                    # Write the path to the output file, followed by a newline
+                if filename.endswith(('.jpg', '.png')):  # Add more formats if needed
                     file.write(filename + '\n')
         
         self.textPath = os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt')
@@ -497,58 +611,70 @@ class SwipeFrame(CTk.CTkFrame):
             lines = file.readlines()
             self.current_index = int(lines[1])
         
+        self.display_image()
+
+    def load_class_names(self, folder_path):
+        """Load class names from class.txt and populate the class_names list."""
+        class_file_path = os.path.join(folder_path, 'class.txt')
+        if os.path.exists(class_file_path):
+            with open(class_file_path, 'r') as file:
+                lines = file.readlines()
+                for line in lines:
+                    if line.startswith("Class list:"):
+                        # Split the classes based on comma and strip whitespace
+                        self.class_names = [name.strip() for name in line.split(': ')[1].split(',')]
+
+    def display_class_labels(self):
+        """Display class labels horizontally based on the class names."""
+        for widget in self.class_label_frame.winfo_children():
+            widget.destroy()  # Remove any existing labels
+
+        if self.class_names:
+            for idx, class_name in enumerate(self.class_names):
+                # Prefix with "Class1: ", "Class2: ", etc.
+                label_text = f"Class{idx + 1}: {class_name}"
+                label = CTk.CTkLabel(self.class_label_frame, text=label_text, padx=10)
+                label.pack(side="left", padx=10)  # Place labels horizontally with padding
+        else:
+            label = CTk.CTkLabel(self.class_label_frame, text="No classes found", padx=10)
+            label.pack(side="left", padx=10)
+
+    def display_bottom_labels(self):
+        """Display bottom labels with buttons for D-pad and A/B buttons."""
+        for widget in self.bottom_label_frame.winfo_children():
+            widget.destroy()  # Remove any existing labels
+
+        # Ensure there are at least 4 items in the class list, filling with 'null' if necessary
+        displayed_classes = self.class_names[:4] + ['null'] * (4 - len(self.class_names))
+
+        # Create the labels and buttons
+        mappings = [("Left D-pad", displayed_classes[0]),
+                    ("Right D-pad", displayed_classes[1]),
+                    ("B Button", displayed_classes[2]),
+                    ("A Button", displayed_classes[3])]
+
+        for button_label, class_name in mappings:
+            label_text = f"{button_label}: {class_name}"
+            label = CTk.CTkLabel(self.bottom_label_frame, text=label_text, padx=10)
+            label.pack(side="left", padx=10)  # Place labels horizontally with padding
+
     def display_image(self):
+        """Display the current image based on self.current_index."""
         if self.image_paths:
             try:
                 image_path = self.image_paths[self.current_index]
                 image = Image.open(image_path)
                 ctk_image = CTkImage(image, size=(500, 300))  # Convert PIL.Image to CTkImage with desired size
-                self.image_label.configure(image=ctk_image)  # Use CTkImage for the label
-                self.image_label.image = ctk_image  # Assign to prevent garbage collection
+                self.image_label.configure(image=ctk_image, text="")  # Use CTkImage for the label, clear text
+                self.image_label.image = ctk_image  # Prevent garbage collection
             except Exception as e:
-                messagebox.showwarning("Warning", f"Error displaying image: {e}")
-
-    def create_widgets(self):
-        self.image_label = CTk.CTkLabel(self, text = '              ')
-        self.image_label.pack(pady=100)
+                print(f"Error displaying image: {e}")
+        else:
+            self.image_label.configure(image=None, text="No image loaded.")
 
 
-    def next_image(self,event):
-        current_time = time.time()
-        if self.image_paths and current_time - self.right_key_last_press_time > self.debounce_interval:
-            # Open the CSV file in append mode and write the data
-            with open(self.parent.spliceFrame.new_folder_path + '/labels.csv', 'a', newline='') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                csv_writer.writerow([self.image_paths[self.current_index].split('/')[-1], 1])
-            
-            self.current_index = (self.current_index + 1) % len(self.image_paths)
-            
-            self.display_image()
-            self.right_key_last_press_time = current_time
-            self.textPath = os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt')
-
-            with open(self.textPath, 'r') as file:
-                lines = file.readlines()
-            lines[1] = str(self.current_index)
-
-            with open(self.textPath, 'w') as file:
-                file.writelines(lines)
-
-    def previous_image(self,event):
-        current_time = time.time()
-        if self.image_paths and current_time - self.left_key_last_press_time > self.debounce_interval:
-            with open(self.parent.spliceFrame.new_folder_path + '/labels.csv', 'a', newline='') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                csv_writer.writerow([self.image_paths[self.current_index].split('/')[-1], 0])
-            self.current_index = (self.current_index + 1) % len(self.image_paths)
-            self.display_image()
-            self.left_key_last_press_time = current_time
-            self.textPath = os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt')
-            with open(self.textPath, 'r') as file:
-                lines = file.readlines()
-            lines[1] = str(self.current_index)
-            with open(self.textPath, 'w') as file:
-                file.writelines(lines)
+class StatsFrame(CTk.CTkFrame):
+    pass
 
 if __name__ == "__main__":
     app = Application()
