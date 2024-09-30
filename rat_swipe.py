@@ -63,6 +63,9 @@ class Application(CTk.CTk):
             self.swipeFrame.grid(row=0, column=0, sticky="nsew")
         else:
             self.swipeFrame.grid_forget()
+
+        if name == "stats":
+            self
         
     def position_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -503,6 +506,14 @@ def extract_last_number(file_path):
     numbers = re.findall(r'\d+', file_path.split('/')[-1])
     return int(numbers[-1]) if numbers else 0  # Use the last number, default to 0 if none
 
+def get_second_line_from_info(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        if len(lines) >= 2:
+            return lines[1].strip()  # Return second line, remove any leading/trailing spaces
+        else:
+            return None  # Handle case if file doesn't have enough lines
+
 class SwipeFrame(CTk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
@@ -511,9 +522,19 @@ class SwipeFrame(CTk.CTkFrame):
         self.current_index = 0
         self.class_names = []  # This will be populated from class.txt
 
+        self.class_colors = {
+            0: "#E57373",  # Darker pastel red
+            1: "#81B3D2",  # Darker pastel blue
+            2: "#7DBF7D",  # Darker pastel green
+            3: "#B186C4"   # Darker pastel purple
+        }
+
         self.left_key_last_press_time = 0
         self.right_key_last_press_time = 0
-        self.debounce_interval = 0.3  # 300 ms debounce interval
+        self.debounce_interval = 0.2  # 300 ms debounce interval
+
+        # Variable to hold the last class pressed
+        self.last_class = 'None'
 
         self.create_widgets()  # Ensure the method is defined before it is called
         self.parent.bind("<KeyPress-Left>", self.key_press)
@@ -527,13 +548,50 @@ class SwipeFrame(CTk.CTkFrame):
         self.class_label_frame = CTk.CTkFrame(self, fg_color="transparent")
         self.class_label_frame.pack(pady=10, padx=20, side="top", anchor="n")
 
-        # Create and pack the image label for displaying images
-        self.image_label = CTk.CTkLabel(self, text='No image loaded.', width=500, height=300)
-        self.image_label.pack(pady=50)  # Adjust layout as needed
+        # Create a horizontal frame to hold the image and the side labels
+        self.image_and_labels_frame = CTk.CTkFrame(self, fg_color="transparent")
+        self.image_and_labels_frame.pack(pady=10, padx=20, fill="x", expand=True)
 
-        # Frame for bottom labels
+        # Left label to display the last pressed class
+        self.left_class_label = CTk.CTkLabel(self.image_and_labels_frame, text='Last class: None', width=100)
+        self.left_class_label.pack(side="left", padx=10, fill="y", expand=False)
+
+        # Create and pack the image label for displaying images
+        self.image_label = CTk.CTkLabel(self.image_and_labels_frame, text='No image loaded.', width=500, height=300)
+        self.image_label.pack(side="left", pady=50)  # Adjust layout as needed
+
+        # Right label to display the last pressed class
+        self.right_class_label = CTk.CTkLabel(self.image_and_labels_frame, text='Last class: None', width=100)
+        self.right_class_label.pack(side="right", padx=10, fill="y", expand=False)
+
+        # Frame for bottom labels (this is where the controls will be restored)
         self.bottom_label_frame = CTk.CTkFrame(self, fg_color="transparent")
         self.bottom_label_frame.pack(pady=10, padx=20, side="bottom", anchor="s")
+
+        # Ensure there are at least 4 items in the class list, filling with 'null' if necessary
+        displayed_classes = self.class_names[:4] + ['null'] * (4 - len(self.class_names))
+
+        # Add export button in the top right corner
+        self.export_button = CTk.CTkButton(self, text="Export", command=self.export_data, width = 100, fg_color="#3a3e41",
+                                            text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
+        self.export_button.place(x= 780, y=10, anchor="ne")  # Adjust x position for button
+
+
+        # Create a label to display the ratio of scored/total slides and position it in the top left
+        self.ratio_label = CTk.CTkLabel(self, text="0/0 scored", width=100)
+        self.ratio_label.place(x=20, y=10)  # Place in the top left corner
+
+        # Create the labels and buttons for controls
+        mappings = [("Left D-pad", displayed_classes[0]),
+                    ("Right D-pad", displayed_classes[1]),
+                    ("B Button", displayed_classes[2]),
+                    ("A Button", displayed_classes[3])]
+
+        for i, (button_label, class_name) in enumerate(mappings):
+            label_text = f"{button_label}: {class_name}"
+            # Color the text according to the defined class color
+            label = CTk.CTkLabel(self.bottom_label_frame, text=label_text, padx=10, text_color=self.class_colors.get(i, "gray"))
+            label.pack(side="left", padx=10)  # Place labels horizontally with padding
 
     def key_press(self, event):
         """Handle key press and update the labels.csv file."""
@@ -542,23 +600,33 @@ class SwipeFrame(CTk.CTkFrame):
         if current_time - self.left_key_last_press_time > self.debounce_interval:
             # Map keys to corresponding class names
             key_to_class_map = {
-                "Left": self.class_names[0] if len(self.class_names) > 0 else 'null',
-                "Right": self.class_names[1] if len(self.class_names) > 1 else 'null',
-                "a": self.class_names[3] if len(self.class_names) > 3 else 'null',
-                "b": self.class_names[2] if len(self.class_names) > 2 else 'null',
+                "Left": 0,  # Class1 (fight)
+                "Right": 1,  # Class2 (flee)
+                "b": 2,  # Class3 (find)
+                "a": 3   # Class4 (null or custom class)
             }
 
-            class_name = key_to_class_map.get(event.keysym, 'unknown')
+            class_index = key_to_class_map.get(event.keysym)
 
-            # Skip processing if the class name is 'null'
-            if class_name == 'null':
-                return  # Don't save or update anything if class is null
+            if class_index is None or class_index >= len(self.class_names):
+                return  # If no valid class is found or index is out of range, skip
 
-            # Proceed to next image and save the current one
+            class_name = self.class_names[class_index]
+
+            # Get the color for the pressed class
+            class_color = self.class_colors.get(class_index, "#000000")  # Default to black if not found
+
+            # Update the last class pressed and apply the relevant color
+            self.last_class = class_name
+            self.left_class_label.configure(text=f'Last class: {self.last_class}', text_color=class_color)
+            self.right_class_label.configure(text=f'Last class: {self.last_class}', text_color=class_color)
+
             self.current_index = (self.current_index + 1) % len(self.image_paths)
             self.display_image()
+
             self.update_labels_csv(self.image_paths[self.current_index], class_name)
-            self.update_info_file()  # Update the info.txt file with the new index
+            self.update_info_file()
+            self.update_ratio_label()
 
             self.left_key_last_press_time = current_time
 
@@ -571,6 +639,10 @@ class SwipeFrame(CTk.CTkFrame):
                 writer.writerow([image_path, class_name])
         except Exception as e:
             print(f"Error updating CSV: {e}")
+    
+    def update_ratio_label(self):
+        """Update the ratio label to show the number of scored images."""
+        self.ratio_label.configure(text=f"{get_second_line_from_info(os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt'))}/{self.total_images_count} scored")
 
     def update_info_file(self):
         """Update the info.txt file with the current index."""
@@ -590,6 +662,7 @@ class SwipeFrame(CTk.CTkFrame):
             self.image_paths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.jpg', '.png'))]
 
         self.image_paths = sorted(self.image_paths, key=extract_last_number)
+        self.total_images_count = len([f for f in os.listdir(self.parent.spliceFrame.new_folder_path) if f.lower().endswith('.jpg')])
 
         # Load class names from class.txt
         self.load_class_names(folder_path)
@@ -605,13 +678,19 @@ class SwipeFrame(CTk.CTkFrame):
             for filename in self.image_paths:
                 if filename.endswith(('.jpg', '.png')):  # Add more formats if needed
                     file.write(filename + '\n')
-        
+
+        # Read info.txt to get the current index (number of scored images)
         self.textPath = os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt')
         with open(self.textPath, 'r') as file:
             lines = file.readlines()
             self.current_index = int(lines[1])
-        
+
+        # Call update_ratio_label to refresh the label with correct values right after loading
+        self.update_ratio_label()
+
+        # Display the first image
         self.display_image()
+
 
     def load_class_names(self, folder_path):
         """Load class names from class.txt and populate the class_names list."""
@@ -625,19 +704,26 @@ class SwipeFrame(CTk.CTkFrame):
                         self.class_names = [name.strip() for name in line.split(': ')[1].split(',')]
 
     def display_class_labels(self):
-        """Display class labels horizontally based on the class names."""
+        """Display class labels horizontally with buttons, similar to the D-pad and A/B buttons."""
+        # Remove any existing labels in the frame
         for widget in self.class_label_frame.winfo_children():
-            widget.destroy()  # Remove any existing labels
+            widget.destroy()  
+        
+        # Ensure there are at least 4 items in the class list, filling with 'null' if necessary
+        displayed_classes = self.class_names[:4] + ['null'] * (4 - len(self.class_names))
 
-        if self.class_names:
-            for idx, class_name in enumerate(self.class_names):
-                # Prefix with "Class1: ", "Class2: ", etc.
-                label_text = f"Class{idx + 1}: {class_name}"
-                label = CTk.CTkLabel(self.class_label_frame, text=label_text, padx=10)
-                label.pack(side="left", padx=10)  # Place labels horizontally with padding
-        else:
-            label = CTk.CTkLabel(self.class_label_frame, text="No classes found", padx=10)
-            label.pack(side="left", padx=10)
+        # Create mappings similar to the bottom labels, for the horizontal layout
+        mappings = [("L Btn", displayed_classes[0]),
+                    ("R Btn", displayed_classes[1]),
+                    ("B Btn", displayed_classes[2]),
+                    ("A Btn", displayed_classes[3])]
+
+        # Display the labels and buttons
+        for i, (button_label, class_name) in enumerate(mappings):
+            label_text = f"{button_label}: {class_name}"
+            # Apply the respective color for each class text
+            label = CTk.CTkLabel(self.class_label_frame, text=label_text, padx=10, text_color=self.class_colors.get(i, "gray"))
+            label.pack(side="left", padx=10)  # Place labels horizontally with padding
 
     def display_bottom_labels(self):
         """Display bottom labels with buttons for D-pad and A/B buttons."""
@@ -648,16 +734,16 @@ class SwipeFrame(CTk.CTkFrame):
         displayed_classes = self.class_names[:4] + ['null'] * (4 - len(self.class_names))
 
         # Create the labels and buttons
-        mappings = [("Left D-pad", displayed_classes[0]),
-                    ("Right D-pad", displayed_classes[1]),
-                    ("B Button", displayed_classes[2]),
-                    ("A Button", displayed_classes[3])]
+        mappings = [("L Btn", displayed_classes[0]),
+                    ("R Btn", displayed_classes[1]),
+                    ("B Btn", displayed_classes[2]),
+                    ("A Btn", displayed_classes[3])]
 
-        for button_label, class_name in mappings:
+        for i, (button_label, class_name) in enumerate(mappings):
             label_text = f"{button_label}: {class_name}"
-            label = CTk.CTkLabel(self.bottom_label_frame, text=label_text, padx=10)
+            # Apply the respective color for each class text
+            label = CTk.CTkLabel(self.bottom_label_frame, text=label_text, padx=10, text_color=self.class_colors.get(i, "gray"))
             label.pack(side="left", padx=10)  # Place labels horizontally with padding
-
     def display_image(self):
         """Display the current image based on self.current_index."""
         if self.image_paths:
@@ -671,6 +757,11 @@ class SwipeFrame(CTk.CTkFrame):
                 print(f"Error displaying image: {e}")
         else:
             self.image_label.configure(image=None, text="No image loaded.")
+    
+    def export_data(self):
+        """Handle export button click."""
+        # Implement your export logic here
+        print("Export button clicked")
 
 
 class StatsFrame(CTk.CTkFrame):
