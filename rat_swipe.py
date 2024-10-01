@@ -4,6 +4,7 @@ import customtkinter as CTk
 from customtkinter import CTkImage
 from PIL import Image, ImageTk
 import os
+import shutil
 import sys
 import cv2
 import time
@@ -87,8 +88,6 @@ class NavigationFrame(CTk.CTkFrame):
         self.stats.configure(fg_color=("#ff5146", "#ff5146") if name == "journal" else "transparent")
 
     def create_widgets(self):
-    # Number of columns in the grid
-        # Number of columns in the grid
         total_columns = 10
 
         # Splice button
@@ -132,7 +131,7 @@ class FolderNameDialog(CTk.CTkToplevel):
 
         if title:
             self.title(title)
-        self.geometry("300x150")
+        self.position_window(300,150)
 
         CTk.set_appearance_mode("dark")
         
@@ -151,6 +150,13 @@ class FolderNameDialog(CTk.CTkToplevel):
 
         self.folder_name = None
         self.new_folder_path = None
+    
+    def position_window(self, width, height):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width/2) - (width/2)
+        y = (screen_height/2) - (height/2)
+        self.geometry('%dx%d+%d+%d' % (width, height, x, y))
 
     def on_submit(self):
         self.folder_name = self.entry.get()
@@ -174,6 +180,67 @@ class FolderNameDialog(CTk.CTkToplevel):
 
         self.destroy()
 
+    def show(self):
+        self.wait_window()
+        return self.folder_name
+
+class FolderNameDialog_swipe(CTk.CTkToplevel):
+    def __init__(self, parent, title=None, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+
+        if title:
+            self.title(title)
+        self.position_window(300,150)
+
+        CTk.set_appearance_mode("dark")
+        
+        # Add customtkinter widgets
+        self.label = CTk.CTkLabel(self, text="Enter folder name:")
+        self.label.pack(pady=10)
+
+        self.entry = CTk.CTkEntry(self)
+        self.entry.pack(pady=10)
+
+        self.submit_button = CTk.CTkButton(self, text="Create",
+                                           fg_color=("gray75", "gray30"),  # Custom colors
+                                           hover_color=("gray30", "gray75"),
+                                           command=self.on_submit)
+        self.submit_button.pack(pady=10)
+
+        self.folder_name = None
+        self.new_folder_path = None
+    
+    def position_window(self, width, height):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width/2) - (width/2)
+        y = (screen_height/2) - (height/2)
+        self.geometry('%dx%d+%d+%d' % (width, height, x, y))
+
+    def on_submit(self):
+        self.folder_name = self.entry.get()
+
+        if not self.folder_name:
+            messagebox.showwarning("Warning", "Folder name cannot be empty.")
+            return
+
+        self.desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+        self.new_folder_path = os.path.join(self.desktop_path, self.folder_name)
+
+        if os.path.exists(self.new_folder_path):
+            messagebox.showwarning("Warning", "Choose a name of a folder that doesn't exist.")
+            return
+
+        try:
+            # Attempt to create the folder and catch any errors
+            os.makedirs(self.new_folder_path, exist_ok=False)
+            messagebox.showinfo("Success", f"Folder '{self.folder_name}' created successfully.")
+        except OSError as error:
+            # Handle the error if folder creation fails
+            messagebox.showerror("Error", f"Folder creation was unsuccessful: {error}")
+            return
+
+        self.destroy()  # Only destroy after folder creation is successful
 
     def show(self):
         self.wait_window()
@@ -185,7 +252,7 @@ class ClassCountDialog(CTk.CTkToplevel):
 
         if title:
             self.title(title)
-        self.geometry("500x150") 
+        self.position_window(500,150)
         
         CTk.set_appearance_mode("dark")
         
@@ -196,12 +263,19 @@ class ClassCountDialog(CTk.CTkToplevel):
         self.entry.pack(pady=10)
 
         self.submit_button = CTk.CTkButton(self, text="Enter",
-                                           fg_color=("gray75", "gray30"),  # Custom colors
+                                           fg_color=("gray75", "gray30"),
                                            hover_color=("gray30", "gray75"),
                                            command=self.on_submit)
         self.submit_button.pack(pady=10)
 
         self.class_string = None
+
+    def position_window(self, width, height):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width/2) - (width/2)
+        y = (screen_height/2) - (height/2)
+        self.geometry('%dx%d+%d+%d' % (width, height, x, y))
 
     def on_submit(self):
         self.class_string = self.entry.get()
@@ -347,7 +421,6 @@ class SpliceFrame(CTk.CTkFrame):
                                                     hover_color=("#ff6961", "#ff6961"), 
                                                     fg_color="#3a3e41", 
                                                     image=self.checkmark_image)
-
             except OSError as error:
                 # Handle the error if folder creation fails
                 messagebox.showerror(f"{error}", "Folder creation was unsuccessful.")
@@ -408,7 +481,10 @@ class SpliceFrame(CTk.CTkFrame):
         self.progress_bar.set(1)
 
         csv_file_path = os.path.join(self.new_folder_path, 'labels.csv')
-        open(csv_file_path, 'w').close()
+
+        with open(csv_file_path, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Image Path', 'Class Label'])  # Add column names
 
         current_datetime = datetime.now()
         datetime_string = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
@@ -500,23 +576,45 @@ class SpliceFrame(CTk.CTkFrame):
             frame_count += 1
         
         self.progress_bar.stop()
-
-        # When everything done, release the video capture object
         cap.release()
 
         print(f"Processed video: {video_path}, extracted {frame_count} frames.")
 
 def extract_last_number(file_path):
     numbers = re.findall(r'\d+', file_path.split('/')[-1])
-    return int(numbers[-1]) if numbers else 0  # Use the last number, default to 0 if none
+    return int(numbers[-1]) if numbers else 0 
 
 def get_second_line_from_info(file_path):
     with open(file_path, 'r') as file:
         lines = file.readlines()
         if len(lines) >= 2:
-            return lines[1].strip()  # Return second line, remove any leading/trailing spaces
+            return lines[1].strip()
         else:
-            return None  # Handle case if file doesn't have enough lines
+            return None
+
+class SettingsWindow(CTk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        
+        self.title("Settings")
+        self.position_window(300,200)
+
+        label = CTk.CTkLabel(self, text="Settings", font=("Arial", 20))
+        label.pack(pady=20)
+
+        save_button = CTk.CTkButton(self, text="Save", command=self.save_settings)
+        save_button.pack(pady=10)
+
+    def position_window(self, width, height):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width/2) - (width/2)
+        y = (screen_height/2) - (height/2)
+        self.geometry('%dx%d+%d+%d' % (width, height, x, y))
+
+    def save_settings(self):
+        print("Settings saved!")
+        self.destroy()
 
 class SwipeFrame(CTk.CTkFrame):
     def __init__(self, parent):
@@ -535,10 +633,11 @@ class SwipeFrame(CTk.CTkFrame):
 
         self.left_key_last_press_time = 0
         self.right_key_last_press_time = 0
-        self.debounce_interval = 0.2  # 300 ms debounce interval
+        self.debounce_interval = 0.2  # 200 ms debounce interval
 
         # Variable to hold the last class pressed
         self.last_class = 'None'
+        self.new_folder_path = None
         self.selected_folder = None
 
         self.create_widgets()  # Ensure the method is defined before it is called
@@ -580,6 +679,11 @@ class SwipeFrame(CTk.CTkFrame):
         self.export_button = CTk.CTkButton(self, text="Export", command=self.export_data, width = 100, fg_color="#3a3e41",
                                             text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
         self.export_button.place(x= 780, y=10, anchor="ne")  # Adjust x position for button
+
+        # Add export button in the bottom right corner
+        self.settings_button = CTk.CTkButton(self, text="Settings", command=self.open_settings_window, width = 100, fg_color="#3a3e41",
+                                            text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
+        self.settings_button.place(x= 780, y=470, anchor="ne")  # Adjust x position for button
 
 
         # Create a label to display the ratio of scored/total slides and position it in the top left
@@ -644,7 +748,7 @@ class SwipeFrame(CTk.CTkFrame):
                 writer.writerow([image_path, class_name])
         except Exception as e:
             print(f"Error updating CSV: {e}")
-    
+
     def update_ratio_label(self):
         """Update the ratio label to show the number of scored images."""
         self.ratio_label.configure(text=f"{get_second_line_from_info(os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt'))}/{self.total_images_count} scored")
@@ -695,7 +799,10 @@ class SwipeFrame(CTk.CTkFrame):
 
         # Display the first image
         self.display_image()
-
+    
+    def open_settings_window(self):
+        # Open the settings window as a new class
+        self.settings_window = SettingsWindow(self)
 
     def load_class_names(self, folder_path):
         """Load class names from class.txt and populate the class_names list."""
@@ -764,27 +871,45 @@ class SwipeFrame(CTk.CTkFrame):
             self.image_label.configure(image=None, text="No image loaded.")
     
     def export_data(self):
-        dialog = FolderNameDialog(self, self.selected_folder, title="Create Export Folder")
+        dialog = FolderNameDialog_swipe(self, title="Create Export Folder")
         folder_name = dialog.show()
 
         if folder_name:
-            self.desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
-            self.new_folder_path = os.path.join(self.desktop_path, folder_name)
+            self.new_folder_path = dialog.new_folder_path  # Retrieve the newly created folder path
+            self.selected_folder = self.new_folder_path  # Update the selected folder with the newly created folder path
 
             try:
-                # Attempt to create the folder and catch any errors
-                os.makedirs(self.new_folder_path, exist_ok=False)
-                messagebox.showinfo("Success", f"Folder '{folder_name}' created successfully.")
-                
-                # Update the button UI to reflect the successful folder creation
-                self.create_folder_button.configure(text="Folder Created", 
-                                                    hover_color=("#ff6961", "#ff6961"), 
-                                                    fg_color="#3a3e41", 
-                                                    image=self.checkmark_image)
+                # Ensure that self.class_names contains the list of class names
+                if not hasattr(self, 'class_names') or not self.class_names:
+                    messagebox.showerror("Error", "Class names are not available.")
+                    return
 
-            except OSError as error:
-                # Handle the error if folder creation fails
-                messagebox.showerror(f"{error}", "Folder creation was unsuccessful.")
+                class_directories = []
+                # Create directories for each class in self.class_names
+                for class_name in self.class_names:
+                    class_directory_path = os.path.join(self.new_folder_path, class_name)
+                    os.makedirs(class_directory_path, exist_ok=True)  # Create the directory if it doesn't exist
+                    class_directories.append(class_directory_path)  # Store the directory path in
+
+                messagebox.showinfo("Success", f"Folder '{folder_name}' created successfully with class directories.")
+            except Exception as error:
+                messagebox.showerror("Error", f"Folder or directory creation was unsuccessful: {error}")
+
+            csv_file = os.path.join(self.parent.spliceFrame.new_folder_path, 'labels.csv')
+            
+            df = pd.read_csv(csv_file)
+            df_unique = df.iloc[:,1].unique()
+            
+            for index, classifier in enumerate(df_unique):
+                temp_df = df[df.iloc[:, 1] == classifier]
+                file_list = temp_df['Image Path']
+
+                destination_folder = class_directories[index]
+                for _file in file_list:
+                    if os.path.isfile(_file):
+                        shutil.copy(_file, destination_folder)
+
+                
         else:
             messagebox.showerror("Error", "Folder creation was canceled.")
 
