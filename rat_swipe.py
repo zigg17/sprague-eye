@@ -475,8 +475,7 @@ class SpliceFrame(CTk.CTkFrame):
         for filename in os.listdir(self.selected_folder):
             if filename.lower().endswith(('.mp4', '.mov')):
                 video_path = os.path.join(self.selected_folder, filename)
-                self.process_video(video_path)
-            
+                self.process_video(video_path)           
 
         self.progress_bar.set(1)
 
@@ -616,6 +615,30 @@ class SettingsWindow(CTk.CTkToplevel):
         print("Settings saved!")
         self.destroy()
 
+class InfoWindow(CTk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        
+        self.title("Settings")
+        self.position_window(300,200)
+
+        label = CTk.CTkLabel(self, text="Settings", font=("Arial", 20))
+        label.pack(pady=20)
+
+        save_button = CTk.CTkButton(self, text="Save", command=self.save_settings)
+        save_button.pack(pady=10)
+
+    def position_window(self, width, height):
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width/2) - (width/2)
+        y = (screen_height/2) - (height/2)
+        self.geometry('%dx%d+%d+%d' % (width, height, x, y))
+
+    def save_settings(self):
+        print("Settings saved!")
+        self.destroy()
+
 class SwipeFrame(CTk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
@@ -684,6 +707,11 @@ class SwipeFrame(CTk.CTkFrame):
         self.settings_button = CTk.CTkButton(self, text="Settings", command=self.open_settings_window, width = 100, fg_color="#3a3e41",
                                             text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
         self.settings_button.place(x= 780, y=470, anchor="ne")  # Adjust x position for button
+
+        # Add export button in the bottom right corner
+        self.info_button = CTk.CTkButton(self, text="Info", command=self.open_settings_window, width = 100, fg_color="#3a3e41",
+                                            text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
+        self.info_button.place(x= 120, y=470, anchor="ne")  # Adjust x position for button
 
 
         # Create a label to display the ratio of scored/total slides and position it in the top left
@@ -804,6 +832,10 @@ class SwipeFrame(CTk.CTkFrame):
         # Open the settings window as a new class
         self.settings_window = SettingsWindow(self)
 
+    def open_settings_window(self):
+        # Open the settings window as a new class
+        self.settings_window = InfoWindow(self)
+
     def load_class_names(self, folder_path):
         """Load class names from class.txt and populate the class_names list."""
         class_file_path = os.path.join(folder_path, 'class.txt')
@@ -907,9 +939,7 @@ class SwipeFrame(CTk.CTkFrame):
                 destination_folder = class_directories[index]
                 for _file in file_list:
                     if os.path.isfile(_file):
-                        shutil.copy(_file, destination_folder)
-
-                
+                        shutil.copy(_file, destination_folder)         
         else:
             messagebox.showerror("Error", "Folder creation was canceled.")
 
