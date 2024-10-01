@@ -591,18 +591,32 @@ def get_second_line_from_info(file_path):
         else:
             return None
 
-class SettingsWindow(CTk.CTkToplevel):
+class ActionsWindow(CTk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         
-        self.title("Settings")
+        self.title("Actions")
         self.position_window(300,200)
 
-        label = CTk.CTkLabel(self, text="Settings", font=("Arial", 20))
-        label.pack(pady=20)
+        # Add customtkinter widgets
+        label_frame_count = CTk.CTkLabel(self, text="Reduce Frame Count:")
+        label_frame_count.pack(pady=10)
 
-        save_button = CTk.CTkButton(self, text="Save", command=self.save_settings)
-        save_button.pack(pady=10)
+        self.reduce_frame_button = CTk.CTkButton(self, text="Execute", command=self.reduce_frame_count, fg_color="#3a3e41",
+                                            text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
+        self.reduce_frame_button.pack(pady=5)
+
+        # Add customtkinter widgets
+        label_frame_count = CTk.CTkLabel(self, text="Remove Previous Label:")
+        label_frame_count.pack(pady=10)
+
+        self.reduce_frame_button = CTk.CTkButton(self, text="Execute", command=self.reduce_frame_count, 
+                                                fg_color="#3a3e41", text_color=("gray10", "gray90"),
+                                                hover_color=("#ff6961", "#ff6961"))
+        self.reduce_frame_button.pack(pady=5)
+
+    def reduce_frame_count():
+        pass   
 
     def position_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -619,14 +633,9 @@ class InfoWindow(CTk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         
-        self.title("Settings")
-        self.position_window(300,200)
+        self.title("Info")
+        self.position_window(500,300)
 
-        label = CTk.CTkLabel(self, text="Settings", font=("Arial", 20))
-        label.pack(pady=20)
-
-        save_button = CTk.CTkButton(self, text="Save", command=self.save_settings)
-        save_button.pack(pady=10)
 
     def position_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -704,12 +713,12 @@ class SwipeFrame(CTk.CTkFrame):
         self.export_button.place(x= 780, y=10, anchor="ne")  # Adjust x position for button
 
         # Add export button in the bottom right corner
-        self.settings_button = CTk.CTkButton(self, text="Settings", command=self.open_settings_window, width = 100, fg_color="#3a3e41",
+        self.settings_button = CTk.CTkButton(self, text="Actions", command=self.open_actions_window, width = 100, fg_color="#3a3e41",
                                             text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
         self.settings_button.place(x= 780, y=470, anchor="ne")  # Adjust x position for button
 
         # Add export button in the bottom right corner
-        self.info_button = CTk.CTkButton(self, text="Info", command=self.open_settings_window, width = 100, fg_color="#3a3e41",
+        self.info_button = CTk.CTkButton(self, text="Info", command=self.open_info_window, width = 100, fg_color="#3a3e41",
                                             text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
         self.info_button.place(x= 120, y=470, anchor="ne")  # Adjust x position for button
 
@@ -828,13 +837,13 @@ class SwipeFrame(CTk.CTkFrame):
         # Display the first image
         self.display_image()
     
-    def open_settings_window(self):
+    def open_actions_window(self):
         # Open the settings window as a new class
-        self.settings_window = SettingsWindow(self)
+        self.actions_window = ActionsWindow(self)
 
-    def open_settings_window(self):
+    def open_info_window(self):
         # Open the settings window as a new class
-        self.settings_window = InfoWindow(self)
+        self.info_window = InfoWindow(self)
 
     def load_class_names(self, folder_path):
         """Load class names from class.txt and populate the class_names list."""
