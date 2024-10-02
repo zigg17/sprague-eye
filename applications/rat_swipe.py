@@ -3,6 +3,7 @@ from tkinter import messagebox
 import customtkinter as CTk
 from customtkinter import CTkImage
 from PIL import Image, ImageTk
+from collections import defaultdict
 import os
 import shutil
 import sys
@@ -595,8 +596,8 @@ class ActionsWindow(CTk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         
-        self.title("Actions")
-        self.position_window(320, 285)
+        self.title("Reduce Frame Count")
+        self.position_window(320, 195)
 
         self.parent = parent  # Add this line to assign the parent properly
 
@@ -614,16 +615,6 @@ class ActionsWindow(CTk.CTkToplevel):
         label_frame_count = CTk.CTkLabel(self, text="(will delete images and current saved data)", text_color='red')
         label_frame_count.pack(pady=10)
 
-        # Add customtkinter widgets
-        label_frame_count1 = CTk.CTkLabel(self, text="Remove previous label:")
-        label_frame_count1.pack(pady=10)
-
-        self.reduce_frame_button = CTk.CTkButton(self, text="Execute", command=self.reduce_frame_count, 
-                                                fg_color="#3a3e41", text_color=("gray10", "gray90"),
-                                                hover_color=("#ff6961", "#ff6961"))
-        self.reduce_frame_button.pack(pady=5)
-
-        self.folder_path = self.parent.parent.spliceFrame.new_folder_path
 
     def reduce_frame_count(self):  
         if not self.folder_path:
@@ -814,7 +805,7 @@ class SwipeFrame(CTk.CTkFrame):
         self.export_button.place(x= 780, y=10, anchor="ne")  # Adjust x position for button
 
         # Add export button in the bottom right corner
-        self.settings_button = CTk.CTkButton(self, text="Actions", command=self.open_actions_window, width = 100, fg_color="#3a3e41",
+        self.settings_button = CTk.CTkButton(self, text="Reduce Frames", command=self.open_actions_window, width = 100, fg_color="#3a3e41",
                                             text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
         self.settings_button.place(x= 780, y=470, anchor="ne")  # Adjust x position for button
 
@@ -920,7 +911,7 @@ class SwipeFrame(CTk.CTkFrame):
         if folder_path and os.path.isdir(folder_path):
             self.image_paths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(('.jpg', '.png'))]
 
-        self.image_paths = sorted(self.image_paths, key=extract_last_number)
+        self.image_paths =  group_and_sort_videos(self.image_paths)
         self.total_images_count = len([f for f in os.listdir(self.parent.spliceFrame.new_folder_path) if f.lower().endswith('.jpg')])
 
         # Load class names from class.txt
@@ -1064,6 +1055,40 @@ class SwipeFrame(CTk.CTkFrame):
                         shutil.copy(_file, destination_folder)         
         else:
             messagebox.showerror("Error", "Folder creation was canceled.")
+
+# Helper function to extract video ID and frame number
+def extract_video_and_frame(filepath):
+    # Extract base name (file name) from the complete file path
+    filename = os.path.basename(filepath)
+
+    # Match pattern 'vidX_frameY' from the filename
+    match = re.match(r'(vid\d+)_frame(\d+)', filename)
+    if match:
+        video_id = match.group(1)  # Get video ID like 'vid1', 'vid2', etc.
+        frame_number = int(match.group(2))  # Get frame number as an integer
+        return video_id, frame_number
+    return None, None
+
+# Function to group and sort videos by frame number
+def group_and_sort_videos(image_paths):
+    # Dictionary to store grouped video IDs with associated frame numbers
+    grouped_videos = defaultdict(list)
+
+    # Group by video ID
+    for path in image_paths:
+        video_id, frame_number = extract_video_and_frame(path)
+        if video_id:
+            grouped_videos[video_id].append((path, frame_number))
+
+    # Sort each group by frame number and then flatten the result back to a list of file paths
+    sorted_paths = []
+    for video_id in sorted(grouped_videos):  # Sort video groups by video ID
+        # Sort each group by frame number
+        frames_sorted = sorted(grouped_videos[video_id], key=lambda x: x[1])
+        sorted_paths.extend([path for path, _ in frames_sorted])  # Append sorted paths
+
+    return sorted_paths
+
 
 class StatsFrame(CTk.CTkFrame):
     pass
