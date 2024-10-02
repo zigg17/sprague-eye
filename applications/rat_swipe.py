@@ -596,27 +596,96 @@ class ActionsWindow(CTk.CTkToplevel):
         super().__init__(parent)
         
         self.title("Actions")
-        self.position_window(300,200)
+        self.position_window(320, 285)
+
+        self.parent = parent  # Add this line to assign the parent properly
 
         # Add customtkinter widgets
-        label_frame_count = CTk.CTkLabel(self, text="Reduce Frame Count:")
+        label_frame_count = CTk.CTkLabel(self, text="Reduce frame Count, enter integer:")
         label_frame_count.pack(pady=10)
+        
+        self.entry = CTk.CTkEntry(self, width=100)
+        self.entry.pack(pady=10)
 
         self.reduce_frame_button = CTk.CTkButton(self, text="Execute", command=self.reduce_frame_count, fg_color="#3a3e41",
                                             text_color=("gray10", "gray90"), hover_color=("#ff6961", "#ff6961"))
         self.reduce_frame_button.pack(pady=5)
 
-        # Add customtkinter widgets
-        label_frame_count = CTk.CTkLabel(self, text="Remove Previous Label:")
+        label_frame_count = CTk.CTkLabel(self, text="(will delete images and current saved data)", text_color='red')
         label_frame_count.pack(pady=10)
+
+        # Add customtkinter widgets
+        label_frame_count1 = CTk.CTkLabel(self, text="Remove previous label:")
+        label_frame_count1.pack(pady=10)
 
         self.reduce_frame_button = CTk.CTkButton(self, text="Execute", command=self.reduce_frame_count, 
                                                 fg_color="#3a3e41", text_color=("gray10", "gray90"),
                                                 hover_color=("#ff6961", "#ff6961"))
         self.reduce_frame_button.pack(pady=5)
 
-    def reduce_frame_count():
-        pass   
+        self.folder_path = self.parent.parent.spliceFrame.new_folder_path
+
+    def reduce_frame_count(self):  
+        if not self.folder_path:
+            messagebox.showerror("Error", "No data loaded.")
+            return
+
+        entered_text = self.entry.get()
+
+        try:
+            entered_number = int(entered_text)  # Attempt to convert to integer
+        except ValueError:
+            messagebox.showerror("Error", "Not valid integer format.")
+            return 
+
+
+        # List all files in the folder
+        all_files = os.listdir(self.folder_path)
+
+        # Filter to include only .jpg files
+        jpg_files = [f for f in all_files if f.lower().endswith('.jpg')]
+
+        # Create full paths for each .jpg file
+        jpg_files_full_path = [os.path.join(self.folder_path, item) for item in jpg_files]
+        if entered_number > len(jpg_files_full_path):
+            messagebox.showerror("Error", "The number of files to keep exceeds the available .jpg files.")
+            return
+
+        # Convert to DataFrame
+        jpg_files_df = pd.DataFrame(jpg_files_full_path, columns=['JPG Files'])
+
+        # Sample n files to keep, without replacement
+        jpg_files_sampled = jpg_files_df.sample(n=entered_number, replace=False)
+
+        # Convert sampled files to a set for fast lookup
+        files_to_keep = set(jpg_files_sampled['JPG Files'])
+
+        # Loop through all .jpg files in the folder
+        for file_name in jpg_files_full_path:
+            # Check if the file is not in the list of files to keep
+            if file_name not in files_to_keep:
+                if os.path.isfile(file_name) and file_name.lower().endswith('.jpg'):  # Ensure it's a .jpg file
+                    os.remove(file_name)  # Use the full path for deletion
+                    print(f"Deleted: {file_name}")
+                else:
+                    print(f"Skipped: {file_name} (not a file or not a .jpg)")
+
+        self.parent.load_images()
+        self.parent.total_images_count = len([f for f in os.listdir(self.parent.parent.spliceFrame.new_folder_path) if f.lower().endswith('.jpg')])
+        
+        csv_file = os.path.join(self.folder_path, 'labels.csv')
+        # Read the header (first line)
+        with open(csv_file, 'r') as file:
+            reader = csv.reader(file)
+            header = next(reader)  # Assuming the CSV has a header
+
+        # Write the header back, overwriting the rest of the content
+        with open(csv_file, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(header)  # Write the header back, removing the rest of the data
+
+        self.parent.reset_info_file()
+        self.parent.update_ratio_label()
 
     def position_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -634,7 +703,43 @@ class InfoWindow(CTk.CTkToplevel):
         super().__init__(parent)
         
         self.title("Info")
-        self.position_window(500,300)
+        self.position_window(630, 250)  # Increase window size to fit bigger frames
+
+        # Create a container frame to hold the three frames side by side
+        self.container_frame = CTk.CTkFrame(self)
+        self.container_frame.pack(pady=10, padx=10, fill="both", expand=True)
+
+        # Frame 1 (Adding title and label to this frame)
+        self.frame1 = CTk.CTkFrame(self.container_frame, width=100, height=250)
+        self.frame1.pack(side="left", padx=20)
+
+        # Adding a title to frame1
+        self.title_label1 = CTk.CTkLabel(self.frame1, text="Too many images?", font=("Arial", 16))
+        self.title_label1.pack(pady=10)
+
+        # Adding description below the title
+        self.description_label1 = CTk.CTkLabel(self.frame1, text=" You can reduce image count \nin the actions screen, just enter \nthe amount of frames that you \n want to score.", font=("Arial", 12))
+        self.description_label1.pack(pady=10)
+
+        # Frame 2
+        self.frame2 = CTk.CTkFrame(self.container_frame, width=200, height=250)
+        self.frame2.pack(side="left", padx=20)
+
+        self.label2 = CTk.CTkLabel(self.frame2, text="Finished labeling?", font=("Arial", 16))
+        self.label2.pack(pady=10)
+
+        self.description_label2 = CTk.CTkLabel(self.frame2, text="You can export the \n dataset for training down \n the road. RatSwipe offers \n a cloud compatible \n codebase for your training \n needs.", font=("Arial", 12))
+        self.description_label2.pack(pady=10)
+
+        # Frame 3
+        self.frame3 = CTk.CTkFrame(self.container_frame, width=200, height=250)
+        self.frame3.pack(side="left", padx=20)
+
+        self.label3 = CTk.CTkLabel(self.frame3, text="Mislabeled frame?", font=("Arial", 16))
+        self.label3.pack(pady=10)
+
+        self.description_label3 = CTk.CTkLabel(self.frame3, text=" You can undo your most recent \n label in the actions screen. ", font=("Arial", 12))
+        self.description_label3.pack(pady=10)
 
 
     def position_window(self, width, height):
@@ -643,10 +748,6 @@ class InfoWindow(CTk.CTkToplevel):
         x = (screen_width/2) - (width/2)
         y = (screen_height/2) - (height/2)
         self.geometry('%dx%d+%d+%d' % (width, height, x, y))
-
-    def save_settings(self):
-        print("Settings saved!")
-        self.destroy()
 
 class SwipeFrame(CTk.CTkFrame):
     def __init__(self, parent):
@@ -802,6 +903,18 @@ class SwipeFrame(CTk.CTkFrame):
         except Exception as e:
             print(f"Error updating info.txt: {e}")
 
+    def reset_info_file(self):
+        """Update the info.txt file with the current index."""
+        text_path = os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt')
+        try:
+            with open(text_path, 'r') as file:
+                lines = file.readlines()
+            lines[1] = '0' # Update the current index in the file
+            with open(text_path, 'w') as file:
+                file.writelines(lines)
+        except Exception as e:
+            print(f"Error updating info.txt: {e}")
+
     def load_images(self):
         folder_path = self.parent.spliceFrame.new_folder_path
         if folder_path and os.path.isdir(folder_path):
@@ -926,7 +1039,7 @@ class SwipeFrame(CTk.CTkFrame):
                     return
 
                 class_directories = []
-                # Create directories for each class in self.class_names
+
                 for class_name in self.class_names:
                     class_directory_path = os.path.join(self.new_folder_path, class_name)
                     os.makedirs(class_directory_path, exist_ok=True)  # Create the directory if it doesn't exist
