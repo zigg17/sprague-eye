@@ -42,9 +42,12 @@ class Application(CTk.CTk):
         self.directory_path = os.path.join(os.path.expanduser('~'), 'weaveData','userData.txt')
         
         self.spliceFrame = SpliceFrame(self)
+        self.statsFrame = StatsFrame(self)
+
         self.isOpen = False
+
+
         self.swipeFrame = SwipeFrame(self)
-        # Create frames
         self.navFrame = NavigationFrame(self)
         self.navFrame.grid(row=1, column=0, sticky="ew")  # Bottom-aligned navbar
 
@@ -66,7 +69,9 @@ class Application(CTk.CTk):
             self.swipeFrame.grid_forget()
 
         if name == "stats":
-            self
+            self.statsFrame.grid(row=0, column=0, sticky="nsew")
+        else:
+            self.statsFrame.grid_forget()
         
     def position_window(self, width, height):
         screen_width = self.winfo_screenwidth()
@@ -86,7 +91,7 @@ class NavigationFrame(CTk.CTkFrame):
         # set button color for selected button
         self.splice.configure(fg_color=("#ff5146", "#ff5146") if name == "splice" else "transparent")
         self.swipe.configure(fg_color=("#ff5146", "#ff5146") if name == "swipe" else "transparent")
-        self.stats.configure(fg_color=("#ff5146", "#ff5146") if name == "journal" else "transparent")
+        self.stats.configure(fg_color=("#ff5146", "#ff5146") if name == "stats" else "transparent")
 
     def create_widgets(self):
         total_columns = 10
@@ -709,7 +714,8 @@ class InfoWindow(CTk.CTkToplevel):
         self.title_label1.pack(pady=10)
 
         # Adding description below the title
-        self.description_label1 = CTk.CTkLabel(self.frame1, text=" You can reduce image count \nin the actions screen, just enter \nthe amount of frames that you \n want to score.", font=("Arial", 12))
+        self.description_label1 = CTk.CTkLabel(self.frame1, 
+        text=" You can reduce image count \nin the actions screen, just enter \nthe amount of frames that you \n want to score.", font=("Arial", 12))
         self.description_label1.pack(pady=10)
 
         # Frame 2
@@ -719,7 +725,9 @@ class InfoWindow(CTk.CTkToplevel):
         self.label2 = CTk.CTkLabel(self.frame2, text="Finished labeling?", font=("Arial", 16))
         self.label2.pack(pady=10)
 
-        self.description_label2 = CTk.CTkLabel(self.frame2, text="You can export the \n dataset for training down \n the road. RatSwipe offers \n a cloud compatible \n codebase for your training \n needs.", font=("Arial", 12))
+        self.description_label2 = CTk.CTkLabel(self.frame2, 
+        text="You can export the \n dataset for training down \n the road. RatSwipe offers \n a cloud compatible \n codebase for your training \n needs.", 
+        font=("Arial", 12))
         self.description_label2.pack(pady=10)
 
         # Frame 3
@@ -729,7 +737,8 @@ class InfoWindow(CTk.CTkToplevel):
         self.label3 = CTk.CTkLabel(self.frame3, text="Mislabeled frame?", font=("Arial", 16))
         self.label3.pack(pady=10)
 
-        self.description_label3 = CTk.CTkLabel(self.frame3, text=" You can undo your most recent \n label in the actions screen. ", font=("Arial", 12))
+        self.description_label3 = CTk.CTkLabel(self.frame3,
+        text=" You can undo your most recent \n label in the actions screen. ", font=("Arial", 12))
         self.description_label3.pack(pady=10)
 
 
@@ -880,7 +889,8 @@ class SwipeFrame(CTk.CTkFrame):
 
     def update_ratio_label(self):
         """Update the ratio label to show the number of scored images."""
-        self.ratio_label.configure(text=f"{get_second_line_from_info(os.path.join(self.parent.spliceFrame.new_folder_path, 'info.txt'))}/{self.total_images_count} scored")
+        self.ratio_label.configure(text=f"{get_second_line_from_info(os.path.join(self.parent.spliceFrame.new_folder_path, 
+        'info.txt'))}/{self.total_images_count} scored")
 
     def update_info_file(self):
         """Update the info.txt file with the current index."""
@@ -940,6 +950,8 @@ class SwipeFrame(CTk.CTkFrame):
 
         # Display the first image
         self.display_image()
+
+        self.parent.statsFrame.get_csv_info()
     
     def open_actions_window(self):
         # Open the settings window as a new class
@@ -1089,9 +1101,80 @@ def group_and_sort_videos(image_paths):
 
     return sorted_paths
 
-
 class StatsFrame(CTk.CTkFrame):
-    pass
+    def __init__(self, parent):
+        super().__init__(parent, corner_radius=0, fg_color="transparent")
+        self.parent = parent
+        self.image_paths = []
+        self.current_index = 0
+        self.class_names = []  # This will be populated from class.txt
+
+        self.create_widgets()
+    
+    def create_widgets(self):
+        # Configure the grid layout for the main frame to have 3 equal columns
+        self.grid_columnconfigure(0, weight=1, uniform="equal")
+        self.grid_columnconfigure(1, weight=1, uniform="equal")
+        self.grid_columnconfigure(2, weight=1, uniform="equal")
+        
+        # Create the three frames
+        self.general_frame = CTk.CTkFrame(self, corner_radius=0)
+        self.general_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        self.classes_frame = CTk.CTkFrame(self, corner_radius=0)
+        self.classes_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+        self.videos_frame = CTk.CTkFrame(self, corner_radius=0)
+        self.videos_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+
+        # Add labels to each frame
+        self.general_label = CTk.CTkLabel(self.general_frame, text="General", font=("Arial", 20, 'bold', 'underline'))
+        self.general_label.pack(pady=10)
+
+        self.classes_label = CTk.CTkLabel(self.classes_frame, text="Classes", font=("Arial", 20, 'bold','underline'))
+        self.classes_label.pack(pady=10)
+
+        self.videos_label = CTk.CTkLabel(self.videos_frame, text="Videos", font=("Arial", 20, 'bold', 'underline'))
+        self.videos_label.pack(pady=10)
+    
+    def get_csv_info(self):
+        self.folder_path = self.parent.spliceFrame.new_folder_path
+        full_csv_path = os.path.join(self.folder_path, "labels.csv")
+        
+        # Read the CSV file
+        df = pd.read_csv(full_csv_path)
+        
+        # Get the unique class labels and their counts
+        nunique = df['Class Label'].value_counts()
+        
+        # Clear previous widgets from the classes_frame
+        for widget in self.classes_frame.winfo_children():
+            widget.destroy()
+        
+        # Re-add the "Classes" label at the top of the frame with underline
+        self.classes_label = CTk.CTkLabel(self.classes_frame, text="Classes", font=("Arial", 20, 'bold', 'underline'))
+        self.classes_label.pack(pady=10)
+        
+        # Add a bulleted list of class types
+        bullet_header = CTk.CTkLabel(self.classes_frame, text="Class Types:", font=("Arial", 16, "bold"))
+        bullet_header.pack(pady=5)
+        
+        for class_name in nunique.index:
+            # Create a bulleted list of class types
+            bullet_item = CTk.CTkLabel(self.classes_frame, text=f"• {class_name}", font=("Arial", 14))
+            bullet_item.pack(pady=2)
+        
+        # Add a header for "Class counts:"
+        header_label = CTk.CTkLabel(self.classes_frame, text="Class counts:", font=("Arial", 16, "bold"))
+        header_label.pack(pady=10)
+        
+        # Iterate through the unique class labels and their counts
+        for label, count in nunique.items():
+            # Create a label for each class and count
+            class_label = CTk.CTkLabel(self.classes_frame, text=f"{label}: {count}")
+            class_label.pack(pady=5)
+        
+        return nunique
 
 if __name__ == "__main__":
     app = Application()
