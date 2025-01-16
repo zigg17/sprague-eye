@@ -9,7 +9,6 @@ import numpy as np
 
 import os
 
-# Define Model
 class ResNet18BBoxPredictor(nn.Module):
     def __init__(self):
         super(ResNet18BBoxPredictor, self).__init__()
@@ -47,7 +46,7 @@ def predict_and_mask(model, image_path, transform, device):
 
     # Save the masked image, replacing the original image
     cv2.imwrite(image_path, mask)
-    
+
 def images_to_video(image_folder, output_file, fps):
     """
     Convert a folder of images into a video.
@@ -84,6 +83,50 @@ def images_to_video(image_folder, output_file, fps):
     video.release()
     print(f"Video saved as {output_file}")
 
+def extract_frames_from_videos(video_folder):
+    """
+    Extract frames from videos in a folder and save them to temporary subdirectories.
+
+    Parameters:
+    video_folder (str): Path to the folder containing video files.
+
+    Returns:
+    str: Path to the temporary directory containing subdirectories of frames.
+    """
+    # Create a temporary directory for output
+    temp_output_folder = tempfile.mkdtemp()
+
+    # Get all video files in the input folder
+    video_files = [f for f in os.listdir(video_folder) if f.endswith(('.mp4', '.avi', '.mov', '.mkv'))]
+
+    for video_file in video_files:
+        video_path = os.path.join(video_folder, video_file)
+        video_name = os.path.splitext(video_file)[0]
+
+        # Create a subdirectory for each video's frames
+        frames_output_dir = os.path.join(temp_output_folder, video_name)
+        if not os.path.exists(frames_output_dir):
+            os.makedirs(frames_output_dir)
+
+        # Open the video file
+        cap = cv2.VideoCapture(video_path)
+
+        frame_count = 0
+        success, frame = cap.read()
+        while success:
+            # Save each frame as an image file
+            frame_filename = os.path.join(frames_output_dir, f"frame_{frame_count:05d}.jpg")
+            cv2.imwrite(frame_filename, frame)
+
+            # Read the next frame
+            success, frame = cap.read()
+            frame_count += 1
+
+        cap.release()
+
+    print(f"Frames extracted and saved in temporary directory: {temp_output_folder}")
+    return temp_output_folder
+
 # Initialize the model
 model = ResNet18BBoxPredictor()
 
@@ -91,7 +134,6 @@ model = ResNet18BBoxPredictor()
 checkpoint_path = "models/bbox_cage.pth"
 checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'), weights_only=True)
 
-# Load the model state_dict
 model.load_state_dict(checkpoint['model_state_dict'])
 
 image_path = "/Users/jakeziegler/Desktop/PROJECTS/SPRAGUE-EYE/JSE-TRAINING/SAMPLED-FRAMES/frame_00031.jpg"
@@ -104,11 +146,8 @@ transform = transforms.Compose([
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-# Folder path
 folder_path = "/Users/jakeziegler/Desktop/PROJECTS/SPRAGUE-EYE/JSE-TRAINING/FRAMES/JSE2"
 
-# Loop through all images in the folder
 for filename in os.listdir(folder_path):
     if filename.lower().endswith(('.jpg', '.jpeg', '.png')):
         image_path = os.path.join(folder_path, filename)
