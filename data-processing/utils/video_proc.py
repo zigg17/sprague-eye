@@ -1,9 +1,15 @@
 import os
-import tkinter as tk
-from tkinter import filedialog, messagebox
 import tempfile
 from pathlib import Path
+import shutil
+
+import tkinter as tk
+from tkinter import filedialog, messagebox
+
 import cv2
+import ffmpeg
+
+import utils.pytorch as torch_util
 
 def get_directory():
     root = tk.Tk()
@@ -26,7 +32,7 @@ def get_directory():
     
 
     if all(f.endswith('.mp4') for f in files if os.path.isfile(os.path.join(directory, f))):
-        files = [directory + s for s in files]
+        files = [os.path.join(directory, s) for s in files]
         return directory, files
     else:
         messagebox.showerror(
@@ -34,13 +40,6 @@ def get_directory():
                 "The selected directory contains non-MP4 files. Please select a folder with only MP4 files."
             )
         return None  
-
-if __name__ == "__main__":
-    selected_directory = get_directory()
-    if selected_directory:
-        print(f"You selected: {selected_directory}")
-    else:
-        print("No directory was selected.")
 
 def process_videos_to_frames(file_paths):
     """
@@ -84,4 +83,72 @@ def process_videos_to_frames(file_paths):
         print(f"Processed {frame_count} frames from {file_path}, stored in {temp_dir}")
 
     return temp_folders
+
+def convert_video_folders(model, transform, device, folder_paths):
+    for folder in folder_paths:
+        file_paths = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, file))]
+        for _file in file_paths:
+            predict_and_mask(model, _file, transform, device)
     
+    return folder_paths
+
+def images_to_video(image_folder: str, video_name: str, fps: int = 30, image_ext: str = "jpg"):
+    """
+    Converts a folder of images into an MP4 video and saves it in a new folder on the Desktop.
+
+    Args:
+        image_folder (str): Path to the folder containing images.
+        video_name (str): Name of the output video file (e.g., "output.mp4").
+        fps (int, optional): Frames per second. Defaults to 30.
+        image_ext (str, optional): Image extension (e.g., "jpg", "png"). Defaults to "jpg".
+    
+    Returns:
+        None
+    """
+    # Get Desktop path
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+
+    # Create output directory if it doesn't exist
+    output_folder = os.path.join(desktop_path, "Generated_Videos")
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Full output video path
+    output_video = os.path.join(output_folder, video_name)
+
+    # Ensure images are sorted and correctly named
+    images = sorted([img for img in os.listdir(image_folder) if img.endswith(f'.{image_ext}')])
+    if not images:
+        raise ValueError(f"No images with extension .{image_ext} found in {image_folder}")
+
+    # Create an input pattern (e.g., frame%d.jpg)
+    input_pattern = os.path.join(image_folder, images[0]).replace(images[0], f"%d.{image_ext}")
+
+    # Run FFmpeg processing
+    (
+        ffmpeg
+        .input(input_pattern, framerate=fps)
+        .output(output_video, vcodec='libx264', pix_fmt='yuv420p')
+        .run()
+    )
+    
+def convert_image_folders(temp_folders):
+    # test
+    return
+
+def cleanup_temp_folders(temp_folders):
+    """
+    Deletes the temporary folders created for storing video frames.
+
+    :param temp_folders: Dictionary of video file paths to temporary folder paths.
+    """
+    for folder in temp_folders.values():
+        if os.path.exists(folder):
+            shutil.rmtree(folder)
+            print(f"Deleted temporary folder: {folder}")
+
+if __name__ == "__main__":
+    selected_directory, files = get_directory()
+
+    folders = process_videos_to_frames(files)
+
+    cleanup_temp_folders(folders)
