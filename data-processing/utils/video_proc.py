@@ -44,24 +44,34 @@ def get_directory():
 def process_videos_to_frames(file_paths):
     """
     Takes a list of file paths, checks if they're all MP4s,
-    and splits each MP4 into frames, storing frames in temporary folders.
+    and splits each MP4 into frames, storing frames in a folder on the desktop.
 
     :param file_paths: List of file paths to check and process
-    :return: Dictionary with file paths as keys and their corresponding temp folder paths as values
+    :return: Dictionary with file paths as keys and their corresponding folder paths as values
     """
-    # Check if all files are .mp4
+    # Ensure all files are .mp4
     if not all(Path(file).suffix == '.mp4' for file in file_paths):
         raise ValueError("All files must be in .mp4 format.")
+
+    # Get the desktop path
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    output_dir = os.path.join(desktop_path, "video_frames")
+
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
     
-    temp_folders = {}
+    frame_folders = {}
 
     for file_path in file_paths:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        # Create a temporary directory for the video
-        temp_dir = tempfile.mkdtemp(prefix="frames_")
-        temp_folders[file_path] = temp_dir
+        # Create a unique folder for this video inside the desktop directory
+        video_name = Path(file_path).stem  # Extract video filename without extension
+        video_dir = os.path.join(output_dir, f"frames_{video_name}")
+        os.makedirs(video_dir, exist_ok=True)
+
+        frame_folders[file_path] = video_dir
 
         # Open video with OpenCV
         cap = cv2.VideoCapture(file_path)
@@ -74,65 +84,100 @@ def process_videos_to_frames(file_paths):
             if not ret:
                 break
             
-            # Save frame as an image in the temporary directory
-            frame_filename = os.path.join(temp_dir, f"frame_{frame_count:04d}.jpg")
+            # Save frame as an image in the directory
+            frame_filename = os.path.join(video_dir, f"frame_{frame_count:04d}.jpg")
             cv2.imwrite(frame_filename, frame)
             frame_count += 1
         
         cap.release()
-        print(f"Processed {frame_count} frames from {file_path}, stored in {temp_dir}")
+        print(f"Processed {frame_count} frames from {file_path}, stored in {video_dir}")
 
-    return temp_folders
+    return frame_folders.values()
 
-def convert_video_folders(model, transform, device, folder_paths):
+def bbox_folders(model, transform, device, folder_paths):
     for folder in folder_paths:
-        file_paths = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, file))]
-        for _file in file_paths:
-            predict_and_mask(model, _file, transform, device)
+        print(folder)
+        files = [os.path.join(folder, s) for s in os.listdir(folder) if os.path.isfile(os.path.join(folder, s))]
+        for _file in files:
+            torch_util.predict_and_mask(model, _file, transform, device)
     
     return folder_paths
 
-def images_to_video(image_folder: str, video_name: str, fps: int = 30, image_ext: str = "jpg"):
+def images_to_video(image_folder, video_name, frame_rate=30):
     """
-    Converts a folder of images into an MP4 video and saves it in a new folder on the Desktop.
+    Converts a folder of images into a video.
 
-    Args:
-        image_folder (str): Path to the folder containing images.
-        video_name (str): Name of the output video file (e.g., "output.mp4").
-        fps (int, optional): Frames per second. Defaults to 30.
-        image_ext (str, optional): Image extension (e.g., "jpg", "png"). Defaults to "jpg".
-    
+    Parameters:
+    - image_folder (str): Path to the folder containing images.
+    - video_name (str): Name of the output video file (default: "output_video.mp4").
+    - frame_rate (int): Frames per second for the output video (default: 30).
+
     Returns:
-        None
+    - None
     """
-    # Get Desktop path
+    # Get all images and sort them
+    images = [img for img in os.listdir(image_folder) if img.endswith((".png", ".jpg", ".jpeg"))]
+    images.sort()  # Ensure they are in order
+
+    if not images:
+        print("No images found in the folder.")
+        return
+
+    # Read the first image to get dimensions
+    first_image_path = os.path.join(image_folder, images[0])
+    first_image = cv2.imread(first_image_path)
+    
+    if first_image is None:
+        print("Error loading the first image. Please check the image files.")
+        return
+
+    height, width, _ = first_image.shape
+
+    # Define the video codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Use 'XVID' for .avi
+    video = cv2.VideoWriter(video_name, fourcc, frame_rate, (width, height))
+
+    # Loop through images and write to video
+    for image in images:
+        img_path = os.path.join(image_folder, image)
+        frame = cv2.imread(img_path)
+
+        if frame is None:
+            print(f"Skipping {img_path}, unable to load.")
+            continue
+
+        video.write(frame)
+
+    # Release the video writer
+    video.release()
+    cv2.destroyAllWindows()
+
+    print(f"Video saved as {video_name}")
+
+def vid_processor(file_path):
+    # Get the desktop path
     desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 
-    # Create output directory if it doesn't exist
-    output_folder = os.path.join(desktop_path, "Generated_Videos")
-    os.makedirs(output_folder, exist_ok=True)
+    # Define the new directory name
+    new_dir = "MyNewFolder"
 
-    # Full output video path
-    output_video = os.path.join(output_folder, video_name)
+    # Full path of the new directory
+    new_dir_path = os.path.join(desktop_path, new_dir)
 
-    # Ensure images are sorted and correctly named
-    images = sorted([img for img in os.listdir(image_folder) if img.endswith(f'.{image_ext}')])
-    if not images:
-        raise ValueError(f"No images with extension .{image_ext} found in {image_folder}")
-
-    # Create an input pattern (e.g., frame%d.jpg)
-    input_pattern = os.path.join(image_folder, images[0]).replace(images[0], f"%d.{image_ext}")
-
-    # Run FFmpeg processing
-    (
-        ffmpeg
-        .input(input_pattern, framerate=fps)
-        .output(output_video, vcodec='libx264', pix_fmt='yuv420p')
-        .run()
-    )
+    # Create the directory if it doesn't already exist
+    if not os.path.exists(new_dir_path):
+        os.makedirs(new_dir_path)
     
+    
+
+    for folder in file_path:
+        last_part = os.path.basename(folder)
+        video_name = os.path.join(new_dir_path, (last_part + '.mp4'))
+        images_to_video(folder, video_name, frame_rate=30)
+        
 def convert_image_folders(temp_folders):
-    # test
+    for temp_folder in temp_folders:
+        images_to_video(temp_folder, os.path.dirname(temp_folder), )
     return
 
 def cleanup_temp_folders(temp_folders):
