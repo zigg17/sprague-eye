@@ -85,7 +85,7 @@ def process_videos_to_frames(file_paths):
                 break
             
             # Save frame as an image in the directory
-            frame_filename = os.path.join(video_dir, f"frame_{frame_count:04d}.jpg")
+            frame_filename = os.path.join(video_dir, f"frame_{frame_count:06d}.jpg")
             cv2.imwrite(frame_filename, frame)
             frame_count += 1
         
@@ -159,7 +159,7 @@ def vid_processor(file_path):
     desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 
     # Define the new directory name
-    new_dir = "MyNewFolder"
+    new_dir = "test2"
 
     # Full path of the new directory
     new_dir_path = os.path.join(desktop_path, new_dir)

@@ -13,4 +13,3 @@ desktop_folders = video_util.process_videos_to_frames(file_list)
 desktop_folders = video_util.bbox_folders(model, transform, device, desktop_folders)
 
 video_util.vid_processor(desktop_folders)
-    
