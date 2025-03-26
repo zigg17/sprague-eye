@@ -6,7 +6,7 @@ import subprocess
 if platform.system() == "Darwin":
     
     # Get the absolute path of the script and its directory
-    script_path = os.path.abspath("data-processing/main.py")
+    script_path = os.path.abspath("desktop-release/main.py")
     script_dir = os.path.dirname(script_path)
 
     # Create the AppleScript command
