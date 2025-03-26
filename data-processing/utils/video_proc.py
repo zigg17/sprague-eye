@@ -167,8 +167,7 @@ def vid_processor(file_path):
     # Create the directory if it doesn't already exist
     if not os.path.exists(new_dir_path):
         os.makedirs(new_dir_path)
-    
-    
+     
 
     for folder in file_path:
         last_part = os.path.basename(folder)
