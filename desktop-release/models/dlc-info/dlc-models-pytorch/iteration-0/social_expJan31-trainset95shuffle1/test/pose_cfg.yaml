@@ -1,0 +1,22 @@
+dataset: /content/extracted_files/social_exp-jake-2025-01-31
+dataset_type: multi-animal-imgaug
+num_joints: 7
+all_joints:
+- - 0
+- - 1
+- - 2
+- - 3
+- - 4
+- - 5
+- - 6
+all_joints_names:
+- nose
+- left_eye
+- right_eye
+- left_ear
+- right_ear
+- mid_back
+- tail_base
+net_type: resnet_50
+global_scale: 1
+scoremap_dir: test
