@@ -18,8 +18,7 @@ def get_directory():
     directory = filedialog.askdirectory(title="Select a Directory")
 
     if not directory:
-        messagebox.showerror("No Directory Selected", "You must select a directory.")
-        return None
+        return None, None
 
     files = [
         f for f in os.listdir(directory)
@@ -27,19 +26,14 @@ def get_directory():
     ]
 
     if not files:
-            messagebox.showerror("Empty Directory", "The selected directory is empty. Please select a valid folder.")
-            return None
+            return None, None
     
 
     if all(f.endswith('.mp4') for f in files if os.path.isfile(os.path.join(directory, f))):
         files = [os.path.join(directory, s) for s in files]
         return directory, files
     else:
-        messagebox.showerror(
-                "Invalid Files",
-                "The selected directory contains non-MP4 files. Please select a folder with only MP4 files."
-            )
-        return None  
+        return None, None
 
 def process_videos_to_frames(file_paths):
     """
@@ -115,9 +109,9 @@ def images_to_video(image_folder, video_name, frame_rate=30):
     Returns:
     - None
     """
-    # Get all images and sort them
+
     images = [img for img in os.listdir(image_folder) if img.endswith((".png", ".jpg", ".jpeg"))]
-    images.sort()  # Ensure they are in order
+    images.sort()
 
     if not images:
         print("No images found in the folder.")
