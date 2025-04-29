@@ -22,3 +22,4 @@ if platform.system() == "Darwin":
 
 if platform.system()== 'Windows':
     os.system('start cmd /k "mode con: cols=100 lines=40 && python main.py"')
+    
