@@ -9,6 +9,9 @@ if platform.system() == "Darwin":
     script_path = os.path.abspath("desktop-release/main.py")
     script_dir = os.path.dirname(script_path)
 
+
+
+
     # Create the AppleScript command
     apple_script = f'''
     tell application "Terminal"
